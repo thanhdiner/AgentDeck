@@ -1,0 +1,13 @@
+{
+  "name": "agentdeck-figma-plugin",
+  "version": "1.0.0",
+  "description": "Figma plugin to send selected nodes directly into AgentDeck prompt composer.",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.83.0",
+    "typescript": "^5.0.0"
+  }
+}

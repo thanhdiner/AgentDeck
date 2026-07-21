@@ -1,0 +1,81 @@
+{
+  "name": "agentdeck",
+  "version": "0.1.0",
+  "description": "Local desktop workspace manager for developer agents and terminals.",
+  "main": "dist/main/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "tsc -b && electron-vite build",
+    "typecheck": "tsc -b",
+    "typecheck:main": "tsc -p tsconfig.main.json --noEmit",
+    "typecheck:renderer": "tsc -p tsconfig.renderer.json --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "preview": "electron-vite preview",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "test": "tsc -b --clean && tsc -b && node dist/main/adapters/testAdapters.js && node dist/shared/utils/testPricing.js"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.1.2",
+    "@xterm/addon-fit": "latest",
+    "@xterm/xterm": "latest",
+    "node-pty": "^1.0.0",
+    "pg": "^8.11.5",
+    "mysql2": "^3.9.7",
+    "mongodb": "^6.5.0",
+    "react": "latest",
+    "react-dom": "latest",
+    "sql.js": "^1.14.1",
+    "vite": "^7.3.3",
+    "zustand": "latest"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "electron": "^41.7.0",
+    "electron-builder": "^24.13.3",
+    "electron-vite": "latest",
+    "eslint": "^10.4.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "prettier": "^3.8.3",
+    "typescript": "latest",
+    "typescript-eslint": "^8.60.0"
+  },
+  "build": {
+    "appId": "com.agentdeck.app",
+    "productName": "AgentDeck",
+    "directories": {
+      "output": "dist-release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.developer-tools"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Development"
+    }
+  }
+}

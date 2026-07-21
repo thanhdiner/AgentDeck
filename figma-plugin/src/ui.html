@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>AgentDeck Bridge</title>
+  <style>
+    :root {
+      --bg-color: #0c0c0e;
+      --panel-bg: #141417;
+      --border-color: rgba(255, 255, 255, 0.06);
+      --text-main: #f4f4f5;
+      --text-muted: #71717a;
+      --brand-color: #38bdf8;
+      --brand-glow: rgba(56, 189, 248, 0.15);
+      --success-color: #10b981;
+      --warning-color: #fbbf24;
+      --danger-color: #ef4444;
+    }
+
+    body {
+      margin: 0;
+      padding: 16px;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 12px;
+      line-height: 1.4;
+      box-sizing: border-box;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    h2 {
+      margin: 0 0 12px 0;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--brand-color);
+    }
+
+    .info-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      flex: 1;
+      overflow-y: auto;
+      margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .info-label {
+      color: var(--text-muted);
+      font-weight: 500;
+      font-size: 11px;
+    }
+
+    .info-value {
+      color: var(--text-main);
+      text-align: right;
+      font-weight: 600;
+      word-break: break-all;
+    }
+
+    .target-badge {
+      font-family: monospace;
+      font-size: 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--text-muted);
+    }
+
+    /* Status box styles */
+    .status-box {
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 11px;
+      display: none;
+      line-height: 1.4;
+      margin-bottom: 12px;
+    }
+
+    .status-no-selection {
+      background: rgba(113, 113, 122, 0.04);
+      border: 1px solid rgba(113, 113, 122, 0.15);
+      color: var(--text-muted);
+      display: block;
+      text-align: center;
+      padding: 24px 16px;
+    }
+
+    .status-multi-selection {
+      background: rgba(251, 191, 36, 0.04);
+      border: 1px solid rgba(251, 191, 36, 0.15);
+      color: var(--warning-color);
+    }
+
+    .status-sending {
+      background: rgba(56, 189, 248, 0.04);
+      border: 1px solid rgba(56, 189, 248, 0.15);
+      color: var(--brand-color);
+    }
+
+    .status-success {
+      background: rgba(16, 185, 129, 0.04);
+      border: 1px solid rgba(16, 185, 129, 0.15);
+      color: var(--success-color);
+    }
+
+    .status-error {
+      background: rgba(239, 68, 68, 0.04);
+      border: 1px solid rgba(239, 68, 68, 0.15);
+      color: var(--danger-color);
+    }
+
+    .status-skipped {
+      background: rgba(251, 191, 36, 0.04);
+      border: 1px solid rgba(251, 191, 36, 0.15);
+      color: var(--warning-color);
+    }
+
+    /* Send button */
+    .btn-send {
+      width: 100%;
+      background: var(--brand-color);
+      color: #000;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: none;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+
+    .btn-send:hover {
+      background: #7dd3fc;
+      box-shadow: 0 0 12px var(--brand-glow);
+    }
+
+    .btn-send:disabled {
+      background: #1e293b;
+      color: #64748b;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* Spinner */
+    .spinner {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border: 2px solid rgba(56, 189, 248, 0.2);
+      border-top: 2px solid var(--brand-color);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    #fullModeContainer {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    #compactModeContainer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 100%;
+      gap: 8px;
+    }
+
+    .btn-compact {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, border-color 0.2s;
+    }
+
+    .btn-compact:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+    }
+
+    .btn-send-compact {
+      background: var(--brand-color);
+      color: #000;
+      font-weight: 700;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s, opacity 0.2s;
+    }
+
+    .btn-send-compact:hover {
+      opacity: 0.9;
+    }
+
+    .btn-send-compact:disabled {
+      background: #1e293b !important;
+      color: #64748b !important;
+      cursor: not-allowed;
+      opacity: 1;
+    }
+
+    /* Auto Send Toggle Styles */
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      user-select: none;
+      margin-bottom: 12px;
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 28px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #27272a;
+      transition: .2s;
+      border-radius: 16px;
+      border: 1px solid var(--border-color);
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 10px;
+      width: 10px;
+      left: 2px;
+      bottom: 2px;
+      background-color: var(--text-muted);
+      transition: .2s;
+      border-radius: 50%;
+    }
+
+    input:checked + .toggle-slider {
+      background-color: rgba(56, 189, 248, 0.15);
+      border-color: rgba(56, 189, 248, 0.4);
+    }
+
+    input:checked + .toggle-slider:before {
+      transform: translateX(12px);
+      background-color: var(--brand-color);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- FULL MODE CONTAINER -->
+  <div id="fullModeContainer">
+    <h2>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M12 2a5 5 0 0 0-5 5v2a5 5 0 0 0 5 5h2a5 5 0 0 0 5-5V7a5 5 0 0 0-5-5h-2z"/>
+        <path d="M12 12a5 5 0 0 0-5 5v2a5 5 0 0 0 5 5h2a5 5 0 0 0 5-5v-2a5 5 0 0 0-5-5h-2z"/>
+      </svg>
+      AgentDeck Bridge
+    </h2>
+
+    <!-- Selection Meta Details Card -->
+    <div class="info-card" id="selectionCard" style="display: none;">
+      <div class="info-row">
+        <span class="info-label">Selection Name:</span>
+        <span class="info-value" id="nodeName">-</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Node Type:</span>
+        <span class="info-value" id="nodeType">-</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Dimensions:</span>
+        <span class="info-value" id="nodeSize">-</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Node ID:</span>
+        <span class="info-value" id="nodeId" style="font-family: monospace; font-size: 10px;">-</span>
+      </div>
+      <div class="info-row" style="margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.03); padding-top: 8px;">
+        <span class="info-label">Target:</span>
+        <span class="target-badge">http://localhost:8765</span>
+      </div>
+    </div>
+
+    <!-- Selection State Status boxes -->
+    <div id="statusNoSelection" class="status-box status-no-selection">
+      Select a frame, group, component, or layer in Figma first.
+    </div>
+
+    <div id="statusMultiSelection" class="status-box status-multi-selection">
+      <strong>Please select only one node.</strong>
+      <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">
+        AgentDeck currently imports one layout/frame selection at a time.
+      </div>
+    </div>
+
+    <div id="statusSending" class="status-box status-sending">
+      <div class="spinner"></div> Sending design selection to AgentDeck...
+    </div>
+
+    <div id="statusSuccess" class="status-box status-success">
+      <strong id="successHeader">✔ Sent successfully!</strong>
+      <div id="successSub" style="font-size: 10px; margin-top: 2px;">
+        AgentDeck received node. Modal should open automatically.
+      </div>
+    </div>
+
+    <div id="statusSkipped" class="status-box status-skipped">
+      <strong>Skipped Duplicate Auto-Send</strong>
+      <div style="font-size: 10px; margin-top: 2px;">
+        This node was already auto-sent within 2 seconds. Click Send button to resend manually.
+      </div>
+    </div>
+
+    <div id="statusError" class="status-box status-error">
+      <strong id="errorHeader">✖ Connection Failed</strong>
+      <div id="errorMessage" style="font-size: 10px; margin-top: 4px; line-height: 1.3;">
+        Could not reach AgentDeck. Make sure AgentDeck is running and the local receiver is enabled on port 8765.
+      </div>
+    </div>
+
+    <!-- Auto Send Toggle Row (Full Mode) -->
+    <div class="toggle-row">
+      <label class="toggle-switch">
+        <input type="checkbox" id="chkAutoSend">
+        <span class="toggle-slider"></span>
+      </label>
+      <span style="color: var(--text-main); font-size: 11px; font-weight: 500; cursor: pointer;" onclick="document.getElementById('chkAutoSend').click()">Auto send on selection change</span>
+    </div>
+
+    <!-- Action Row (Send + Compact) -->
+    <div style="display: flex; gap: 8px; margin-top: auto; align-items: center;">
+      <button id="btnSend" class="btn-send" style="flex: 1; margin: 0;">Send Current Selection</button>
+      <button id="btnCompact" class="btn-compact">Compact</button>
+    </div>
+  </div>
+
+  <!-- COMPACT MODE CONTAINER -->
+  <div id="compactModeContainer" style="display: none;">
+    <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; flex: 1;">
+      <!-- Status Dot -->
+      <span id="compactStatusDot" style="width: 8px; height: 8px; min-width: 8px; border-radius: 50%; background: #71717a; display: inline-block; transition: background-color 0.2s;"></span>
+      <div style="display: flex; flex-direction: column; overflow: hidden; min-width: 0;">
+        <span style="font-weight: 700; color: var(--brand-color); font-size: 10px; line-height: 1; text-transform: uppercase; letter-spacing: 0.5px;">AgentDeck</span>
+        <span id="compactNodeLabel" style="color: var(--text-main); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; font-weight: 500;">Select layer</span>
+      </div>
+    </div>
+    
+    <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+      <button id="btnAutoSendCompact" class="btn-compact" style="padding: 4px 6px; font-size: 9px; line-height: 1.2; border-radius: 4px; border: 1px solid rgba(255,255,255,0.08); margin: 0; min-height: 24px;" title="Auto send on selection change">Auto: OFF</button>
+      <button id="btnSendCompact" class="btn-send-compact" style="min-height: 24px;">Send</button>
+      <button id="btnExpand" style="background: none; border: 1px solid rgba(255,255,255,0.08); color: var(--text-muted); width: 24px; height: 24px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;" title="Expand to Full Panel">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 3 21 3 21 9"></polyline>
+          <polyline points="9 21 3 21 3 15"></polyline>
+          <line x1="21" y1="3" x2="14" y2="10"></line>
+          <line x1="3" y1="21" x2="10" y2="14"></line>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    let currentMode = 'full'; // 'full' or 'compact'
+    let currentStatus = 'empty'; // 'empty', 'multi', 'ready', 'sending', 'auto-sending', 'success', 'auto-sent', 'skipped-duplicate', 'error'
+    let activePayload = null;
+    let errorMessageText = '';
+
+    // Auto Send parameters
+    let isAutoSend = false;
+    let debounceTimer = null;
+    let lastAutoSentNodeId = '';
+    let lastAutoSentTimestamp = 0;
+
+    function updateUI() {
+      // Manage visible containers based on mode
+      if (currentMode === 'full') {
+        document.getElementById('fullModeContainer').style.display = 'flex';
+        document.getElementById('compactModeContainer').style.display = 'none';
+        
+        // Hide/show details card and status boxes based on selection status
+        const isDetailVisible = (
+          currentStatus === 'ready' || 
+          currentStatus === 'sending' || 
+          currentStatus === 'auto-sending' || 
+          currentStatus === 'success' || 
+          currentStatus === 'auto-sent' || 
+          currentStatus === 'skipped-duplicate' || 
+          currentStatus === 'error'
+        ) && activePayload;
+
+        document.getElementById('selectionCard').style.display = isDetailVisible ? 'flex' : 'none';
+        
+        document.getElementById('statusNoSelection').style.display = currentStatus === 'empty' ? 'block' : 'none';
+        document.getElementById('statusMultiSelection').style.display = currentStatus === 'multi' ? 'block' : 'none';
+        document.getElementById('statusSending').style.display = (currentStatus === 'sending' || currentStatus === 'auto-sending') ? 'block' : 'none';
+        document.getElementById('statusSuccess').style.display = (currentStatus === 'success' || currentStatus === 'auto-sent') ? 'block' : 'none';
+        document.getElementById('statusSkipped').style.display = currentStatus === 'skipped-duplicate' ? 'block' : 'none';
+        document.getElementById('statusError').style.display = currentStatus === 'error' ? 'block' : 'none';
+        
+        // Configure dynamic text for success banner
+        if (currentStatus === 'auto-sent') {
+          document.getElementById('successHeader').innerText = '✔ Auto sent!';
+          document.getElementById('successSub').innerText = 'Selection was auto-sent ngầm to AgentDeck (non-intrusive).';
+        } else {
+          document.getElementById('successHeader').innerText = '✔ Sent successfully!';
+          document.getElementById('successSub').innerText = 'AgentDeck received node. Modal should open automatically.';
+        }
+
+        // Send button state in full mode
+        const btnSend = document.getElementById('btnSend');
+        if (currentStatus === 'ready' || currentStatus === 'success' || currentStatus === 'auto-sent' || currentStatus === 'skipped-duplicate' || currentStatus === 'error') {
+          btnSend.style.display = 'block';
+          btnSend.disabled = !activePayload;
+        } else if (currentStatus === 'sending' || currentStatus === 'auto-sending') {
+          btnSend.style.display = 'block';
+          btnSend.disabled = true;
+        } else {
+          btnSend.style.display = 'none';
+        }
+        
+        if (activePayload) {
+          document.getElementById('nodeName').innerText = activePayload.nodeName;
+          document.getElementById('nodeType').innerText = activePayload.nodeType;
+          document.getElementById('nodeSize').innerText = `${activePayload.width}px × ${activePayload.height}px`;
+          document.getElementById('nodeId').innerText = activePayload.nodeId;
+        }
+        if (currentStatus === 'error' && errorMessageText) {
+          document.getElementById('errorMessage').innerText = errorMessageText;
+        }
+      } else {
+        document.getElementById('fullModeContainer').style.display = 'none';
+        document.getElementById('compactModeContainer').style.display = 'flex';
+        
+        // Update compact mode elements
+        const compactNodeLabel = document.getElementById('compactNodeLabel');
+        const compactStatusDot = document.getElementById('compactStatusDot');
+        const btnSendCompact = document.getElementById('btnSendCompact');
+        
+        let dotColor = '#71717a'; // default gray
+        let labelText = 'Select layer';
+        let sendDisabled = true;
+        
+        if (currentStatus === 'empty') {
+          dotColor = isAutoSend ? '#10b981' : '#71717a';
+          labelText = isAutoSend ? 'Auto enabled' : 'Select layer';
+          sendDisabled = true;
+        } else if (currentStatus === 'multi') {
+          dotColor = '#fbbf24'; // orange
+          labelText = 'Select only one';
+          sendDisabled = true;
+        } else if (currentStatus === 'ready') {
+          dotColor = '#38bdf8'; // sky blue
+          labelText = activePayload ? activePayload.nodeName : 'Select layer';
+          sendDisabled = false;
+        } else if (currentStatus === 'sending' || currentStatus === 'auto-sending') {
+          dotColor = '#38bdf8';
+          labelText = currentStatus === 'auto-sending' ? 'Auto sending...' : 'Sending...';
+          sendDisabled = true;
+        } else if (currentStatus === 'success' || currentStatus === 'auto-sent') {
+          dotColor = '#10b981'; // green
+          labelText = currentStatus === 'auto-sent' ? 'Auto sent' : 'Sent';
+          sendDisabled = false; // allow manual override sending again
+        } else if (currentStatus === 'skipped-duplicate') {
+          dotColor = '#fbbf24'; // orange
+          labelText = 'Skipped duplicate';
+          sendDisabled = false;
+        } else if (currentStatus === 'error') {
+          dotColor = '#ef4444'; // red
+          labelText = 'Failed';
+          sendDisabled = false;
+        }
+        
+        compactStatusDot.style.backgroundColor = dotColor;
+        compactNodeLabel.innerText = labelText;
+        btnSendCompact.disabled = sendDisabled;
+        
+        // Pulse sending state visually in compact mode
+        if (currentStatus === 'sending' || currentStatus === 'auto-sending') {
+          compactStatusDot.style.animation = 'spin 1s linear infinite'; // pulsing look
+        } else {
+          compactStatusDot.style.animation = 'none';
+        }
+
+        // Compact Send Button styled states
+        if (currentStatus === 'success' || currentStatus === 'auto-sent') {
+          btnSendCompact.innerText = currentStatus === 'auto-sent' ? 'Auto' : 'Sent';
+          btnSendCompact.style.background = 'rgba(16, 185, 129, 0.15)';
+          btnSendCompact.style.color = '#10b981';
+          btnSendCompact.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+        } else if (currentStatus === 'sending' || currentStatus === 'auto-sending') {
+          btnSendCompact.innerText = 'Send';
+          btnSendCompact.style.background = '#1e293b';
+          btnSendCompact.style.color = '#64748b';
+          btnSendCompact.style.border = 'none';
+        } else if (currentStatus === 'error') {
+          btnSendCompact.innerText = 'Send';
+          btnSendCompact.style.background = 'rgba(239, 68, 68, 0.15)';
+          btnSendCompact.style.color = '#ef4444';
+          btnSendCompact.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+        } else {
+          btnSendCompact.innerText = 'Send';
+          btnSendCompact.style.background = 'var(--brand-color)';
+          btnSendCompact.style.color = '#000';
+          btnSendCompact.style.border = 'none';
+        }
+      }
+    }
+
+    // Toggle logic implementation
+    const chkAutoSend = document.getElementById('chkAutoSend');
+    const btnAutoSendCompact = document.getElementById('btnAutoSendCompact');
+
+    function toggleAutoSend(val) {
+      isAutoSend = val;
+      chkAutoSend.checked = val;
+      
+      // Update Compact Auto button style
+      if (val) {
+        btnAutoSendCompact.style.background = 'rgba(56, 189, 248, 0.12)';
+        btnAutoSendCompact.style.color = '#38bdf8';
+        btnAutoSendCompact.style.borderColor = 'rgba(56, 189, 248, 0.3)';
+        btnAutoSendCompact.innerText = 'Auto: ON';
+      } else {
+        btnAutoSendCompact.style.background = 'rgba(255, 255, 255, 0.03)';
+        btnAutoSendCompact.style.color = 'var(--text-muted)';
+        btnAutoSendCompact.style.borderColor = 'var(--border-color)';
+        btnAutoSendCompact.innerText = 'Auto: OFF';
+        
+        // Clear any pending timers when disabled
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
+          debounceTimer = null;
+        }
+      }
+
+      // If toggle is enabled, and selection is ready, immediately trigger auto-send
+      if (val && currentStatus === 'ready' && activePayload) {
+        // Trigger with standard debounce
+        debounceTimer = setTimeout(() => {
+          triggerAutoSend();
+        }, 700);
+      }
+      
+      updateUI();
+    }
+
+    chkAutoSend.onchange = (e) => {
+      toggleAutoSend(e.target.checked);
+    };
+
+    btnAutoSendCompact.onclick = () => {
+      toggleAutoSend(!isAutoSend);
+    };
+
+    // Auto Send trigger
+    async function triggerAutoSend() {
+      if (!activePayload) return;
+      
+      // Validation checks before sending
+      if (currentStatus === 'sending' || currentStatus === 'auto-sending' || currentStatus === 'empty' || currentStatus === 'multi') {
+        return;
+      }
+      if (!activePayload.selectionUrl || !activePayload.nodeId) {
+        return;
+      }
+
+      // Prevent duplicate sends within 2 seconds
+      const now = Date.now();
+      if (activePayload.nodeId === lastAutoSentNodeId && (now - lastAutoSentTimestamp) < 2000) {
+        currentStatus = 'skipped-duplicate';
+        updateUI();
+        return;
+      }
+
+      currentStatus = 'auto-sending';
+      updateUI();
+
+      try {
+        console.log('[FIGMA UI] Auto-sending selection to AgentDeck...', activePayload);
+        const autoPayload = {
+          ...activePayload,
+          trigger: 'auto'
+        };
+
+        const response = await fetch("http://localhost:8765/figma/selection", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(autoPayload)
+        });
+
+        if (response.ok) {
+          currentStatus = 'auto-sent';
+          lastAutoSentNodeId = activePayload.nodeId;
+          lastAutoSentTimestamp = Date.now();
+        } else {
+          const errText = await response.text();
+          currentStatus = 'error';
+          errorMessageText = `Auto send error: ${errText || response.statusText}`;
+        }
+      } catch (err) {
+        console.error('[FIGMA UI] Auto send fetch error:', err);
+        currentStatus = 'error';
+        errorMessageText = "Could not reach AgentDeck. Auto send failed. Verify AgentDeck app is running.";
+      }
+      updateUI();
+    }
+
+    // Listen to messages from plugin code.ts sandbox
+    window.onmessage = (event) => {
+      const msg = event.data.pluginMessage;
+      if (!msg) return;
+
+      if (msg.type === 'selection-changed') {
+        // Clear any pending debounces whenever selection changes
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
+          debounceTimer = null;
+        }
+
+        if (msg.count === 0) {
+          currentStatus = 'empty';
+          activePayload = null;
+        } else if (msg.count > 1) {
+          currentStatus = 'multi';
+          activePayload = null;
+        } else {
+          currentStatus = 'ready'; // reset status to Ready
+          activePayload = msg.payload;
+
+          // If Auto Send is enabled, trigger debounce
+          if (isAutoSend && activePayload) {
+            // Check duplicate guard immediately to reflect skipped state
+            const now = Date.now();
+            if (activePayload.nodeId === lastAutoSentNodeId && (now - lastAutoSentTimestamp) < 2000) {
+              currentStatus = 'skipped-duplicate';
+            } else {
+              // Schedule auto-send fetch after 700ms debounce
+              debounceTimer = setTimeout(() => {
+                triggerAutoSend();
+              }, 700);
+            }
+          }
+        }
+        updateUI();
+      }
+    };
+
+    // Mode Toggle Triggers
+    document.getElementById('btnCompact').onclick = () => {
+      currentMode = 'compact';
+      document.body.style.padding = '8px 12px';
+      updateUI();
+      // Resize standard iframe to compact mode dimensions
+      parent.postMessage({ pluginMessage: { type: 'resize', width: 280, height: 60 } }, '*');
+    };
+
+    document.getElementById('btnExpand').onclick = () => {
+      currentMode = 'full';
+      document.body.style.padding = '16px';
+      updateUI();
+      // Resize standard iframe back to full mode dimensions
+      parent.postMessage({ pluginMessage: { type: 'resize', width: 320, height: 350 } }, '*');
+    };
+
+    // Trigger POST fetch payload send to local receiver
+    async function sendSelection() {
+      if (!activePayload) return;
+
+      // Cancel any active auto send timer if manual is clicked
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+        debounceTimer = null;
+      }
+
+      currentStatus = 'sending';
+      updateUI();
+
+      try {
+        console.log('[FIGMA UI] Manual sending selection to localhost:8765...', activePayload);
+        const manualPayload = {
+          ...activePayload,
+          trigger: 'manual'
+        };
+
+        const response = await fetch("http://localhost:8765/figma/selection", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(manualPayload)
+        });
+
+        if (response.ok) {
+          currentStatus = 'success';
+          // Cache to prevent immediate auto-resend triggers
+          lastAutoSentNodeId = activePayload.nodeId;
+          lastAutoSentTimestamp = Date.now();
+        } else {
+          const errText = await response.text();
+          currentStatus = 'error';
+          errorMessageText = `Error ${response.status}: ${errText || response.statusText}`;
+        }
+      } catch (err) {
+        console.error('[FIGMA UI] Catch error performing POST fetch:', err);
+        currentStatus = 'error';
+        errorMessageText = "Could not reach AgentDeck. Make sure AgentDeck is running and the local receiver is enabled on port 8765.";
+      }
+      updateUI();
+    }
+
+    document.getElementById('btnSend').onclick = sendSelection;
+    document.getElementById('btnSendCompact').onclick = sendSelection;
+
+    // Initialize UI on startup
+    updateUI();
+  </script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+#!/bin/bash
+if [ -z "$1" ]; then
+  npm run dev
+else
+  # Giai quyet duong dan tuyet doi cua thu muc
+  ABS_PATH=$(cd "$1" && pwd)
+  npm run dev -- "$ABS_PATH"
+fi

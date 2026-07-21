@@ -1,0 +1,15 @@
+{
+  "name": "AgentDeck Bridge",
+  "id": "1357902468135790246",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "src/ui.html",
+  "editorType": [
+    "figma"
+  ],
+  "networkAccess": {
+    "allowedDomains": ["none"],
+    "devAllowedDomains": ["http://localhost:8765"],
+    "reasoning": "The plugin sends selected Figma node metadata to the local AgentDeck desktop app during development."
+  }
+}
