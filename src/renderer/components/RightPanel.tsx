@@ -8818,6 +8818,11 @@ function SkillsPanel() {
   const [confirmDeleteFolderKey, setConfirmDeleteFolderKey] = useState<string | null>(null);
   const [dragOverFolderKey, setDragOverFolderKey] = useState<string | null>(null);
   const html5DragSkillIdRef = useRef<string | null>(null);
+  const [folderContextMenu, setFolderContextMenu] = useState<{
+    x: number;
+    y: number;
+    catFolderName: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!confirmDeleteFolderKey) return;
@@ -8832,6 +8837,22 @@ function SkillsPanel() {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [confirmDeleteFolderKey]);
+
+  useEffect(() => {
+    if (!folderContextMenu) return;
+    const handleClose = () => setFolderContextMenu(null);
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFolderContextMenu(null);
+    };
+    window.addEventListener('click', handleClose);
+    window.addEventListener('contextmenu', handleClose);
+    window.addEventListener('keydown', handleKey);
+    return () => {
+      window.removeEventListener('click', handleClose);
+      window.removeEventListener('contextmenu', handleClose);
+      window.removeEventListener('keydown', handleKey);
+    };
+  }, [folderContextMenu]);
 
   const submitCreateFolder = () => {
     if (!newFolderName || !newFolderName.trim()) return;
@@ -11085,6 +11106,13 @@ function SkillsPanel() {
                       outline: isDragOverThisFolder ? '1px dashed #38bdf8' : undefined,
                       transition: 'background 0.15s ease, outline 0.15s ease'
                     }}
+                    onContextMenu={(e) => {
+                      if (isCat) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setFolderContextMenu({ x: e.clientX, y: e.clientY, catFolderName });
+                      }
+                    }}
                     onDragOver={(e) => {
                       if (isCat || entry.key === 'custom') {
                         e.preventDefault();
@@ -11160,94 +11188,60 @@ function SkillsPanel() {
 
                     {isCat && (
                       <div
-                        className={`folder-header-actions${confirmDeleteFolderKey === catFolderName ? ' confirming' : ''}`}
+                        className="folder-header-actions"
                         style={{ display: 'flex', alignItems: 'center', gap: '3px', paddingRight: '2px' }}
                       >
-                        {confirmDeleteFolderKey !== catFolderName && (
+                        {confirmDeleteFolderKey === catFolderName ? (
                           <>
                             <button
                               type="button"
-                              className="icon-button"
-                              title={`Thêm Subfolder hoặc Skill mới vào ${catFolderName}`}
-                              style={{ width: '22px', height: '22px', padding: 0, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#38bdf8', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                              className="icon-button cancel-btn"
+                              title="Hủy xóa thư mục"
+                              style={{ width: '22px', height: '22px', padding: 0, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#a1a1aa', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setNewFolderName(`${catFolderName}/`);
-                                setShowCreateFolder(true);
+                                setConfirmDeleteFolderKey(null);
                               }}
                             >
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M12 5v14M5 12h14" />
+                                <line x1="18" y1="6" x2="6" y2="18" />
+                                <line x1="6" y1="6" x2="18" y2="18" />
                               </svg>
                             </button>
                             <button
                               type="button"
-                              className="icon-button"
-                              title="Đổi tên thư mục"
-                              style={{ width: '22px', height: '22px', padding: 0, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#e4e4e7', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                              className="icon-button folder-delete-btn"
+                              title="Bấm lại để xác nhận xóa thư mục!"
+                              style={{ width: '22px', height: '22px', padding: 0, background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444', borderRadius: '4px', color: '#ef4444', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                startRenameFolder(catFolderName);
+                                handleDeleteFolderClick(catFolderName);
                               }}
                             >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12" />
                               </svg>
                             </button>
                           </>
-                        )}
-
-                        {confirmDeleteFolderKey === catFolderName && (
+                        ) : (
                           <button
                             type="button"
-                            className="icon-button cancel-btn"
-                            title="Hủy xóa thư mục"
+                            className="icon-button"
+                            title="Tùy chọn thư mục (Chuột phải hoặc bấm vào đây)"
                             style={{ width: '22px', height: '22px', padding: 0, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#a1a1aa', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setConfirmDeleteFolderKey(null);
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setFolderContextMenu({ x: rect.right, y: rect.bottom, catFolderName });
                             }}
                           >
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <line x1="18" y1="6" x2="6" y2="18" />
-                              <line x1="6" y1="6" x2="18" y2="18" />
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="1" />
+                              <circle cx="12" cy="5" r="1" />
+                              <circle cx="12" cy="19" r="1" />
                             </svg>
                           </button>
                         )}
-
-                        <button
-                          type="button"
-                          className="icon-button folder-delete-btn"
-                          title={confirmDeleteFolderKey === catFolderName ? "Bấm lại để xác nhận xóa thư mục!" : "Xóa thư mục"}
-                          style={{
-                            width: '22px',
-                            height: '22px',
-                            padding: 0,
-                            background: confirmDeleteFolderKey === catFolderName ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255,255,255,0.06)',
-                            border: confirmDeleteFolderKey === catFolderName ? '1px solid #ef4444' : '1px solid rgba(255,255,255,0.1)',
-                            borderRadius: '4px',
-                            color: confirmDeleteFolderKey === catFolderName ? '#ef4444' : '#fca5a5',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'all 0.15s ease'
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteFolderClick(catFolderName);
-                          }}
-                        >
-                          {confirmDeleteFolderKey === catFolderName ? (
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          ) : (
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                            </svg>
-                          )}
-                        </button>
                       </div>
                     )}
                   </div>
@@ -11683,6 +11677,127 @@ function SkillsPanel() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {folderContextMenu && (
+        <div
+          className="folder-context-menu"
+          style={{
+            position: 'fixed',
+            left: Math.min(folderContextMenu.x, window.innerWidth - 210),
+            top: Math.min(folderContextMenu.y, window.innerHeight - 170),
+            zIndex: 99999,
+            minWidth: '190px',
+            background: '#18181b',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            borderRadius: '8px',
+            padding: '4px',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={{ padding: '6px 8px 4px 8px', fontSize: '11px', fontWeight: 600, color: '#38bdf8', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+            </svg>
+            <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', flex: 1 }}>
+              {folderContextMenu.catFolderName}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            className="context-menu-item"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              width: '100%',
+              padding: '6px 10px',
+              fontSize: '12px',
+              color: '#f4f4f5',
+              background: 'transparent',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              textAlign: 'left'
+            }}
+            onClick={() => {
+              const cat = folderContextMenu.catFolderName;
+              setFolderContextMenu(null);
+              setNewFolderName(`${cat}/`);
+              setShowCreateFolder(true);
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            <span>Thêm Subfolder mới...</span>
+          </button>
+
+          <button
+            type="button"
+            className="context-menu-item"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              width: '100%',
+              padding: '6px 10px',
+              fontSize: '12px',
+              color: '#f4f4f5',
+              background: 'transparent',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              textAlign: 'left'
+            }}
+            onClick={() => {
+              const cat = folderContextMenu.catFolderName;
+              setFolderContextMenu(null);
+              startRenameFolder(cat);
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e4e4e7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+            </svg>
+            <span>Đổi tên thư mục...</span>
+          </button>
+
+          <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.08)', margin: '2px 0' }} />
+
+          <button
+            type="button"
+            className="context-menu-item danger"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              width: '100%',
+              padding: '6px 10px',
+              fontSize: '12px',
+              color: '#fca5a5',
+              background: 'transparent',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              textAlign: 'left'
+            }}
+            onClick={() => {
+              const cat = folderContextMenu.catFolderName;
+              setFolderContextMenu(null);
+              handleDeleteFolderClick(cat);
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            </svg>
+            <span>Xóa thư mục...</span>
+          </button>
         </div>
       )}
     </div>
