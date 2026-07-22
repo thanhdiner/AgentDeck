@@ -3921,6 +3921,46 @@ function AgentsPanel() {
     },
     [clearAgentDropHover, detachAgentPointerListeners, moveAgentProfile]
   );
+
+  const handleAgentDragStart = (e: React.DragEvent, agentId: string) => {
+    setDraggingAgentId(agentId);
+    e.dataTransfer.setData('text/plain', agentId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleAgentDragOver = (e: React.DragEvent, agentId: string) => {
+    e.preventDefault();
+    if (!draggingAgentId || draggingAgentId === agentId) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    const place: 'before' | 'after' = e.clientY < midY ? 'before' : 'after';
+
+    const card = e.currentTarget as HTMLElement;
+    document.querySelectorAll('.skill-drop-target-before, .skill-drop-target-after').forEach((el) => {
+      if (el !== card) el.classList.remove('skill-drop-target-before', 'skill-drop-target-after');
+    });
+    card.classList.remove('skill-drop-target-before', 'skill-drop-target-after');
+    card.classList.add(place === 'before' ? 'skill-drop-target-before' : 'skill-drop-target-after');
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleAgentDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    const card = e.currentTarget as HTMLElement;
+    const place = card.classList.contains('skill-drop-target-before') ? 'before' : 'after';
+    card.classList.remove('skill-drop-target-before', 'skill-drop-target-after');
+    if (draggingAgentId && draggingAgentId !== targetId) {
+      moveAgentProfile(draggingAgentId, targetId, place);
+    }
+    setDraggingAgentId(null);
+  };
+
+  const handleAgentDragEnd = () => {
+    document.querySelectorAll('.skill-drop-target-before, .skill-drop-target-after').forEach((el) => {
+      el.classList.remove('skill-drop-target-before', 'skill-drop-target-after');
+    });
+    setDraggingAgentId(null);
+  };
   const [draft, setDraft] = useState(emptyAgentDraft);
   const [composerOpen, setComposerOpen] = useState(false);
   const [limit, setLimit] = useState(10);
@@ -4243,6 +4283,10 @@ function AgentsPanel() {
               upsertAgentProfile={upsertAgentProfile}
               isDragging={draggingAgentId === agent.id}
               onDragHandlePointerDown={(e) => beginAgentPointerReorder(agent.id, e.pointerId, e.clientY)}
+              onDragStart={(e) => handleAgentDragStart(e, agent.id)}
+              onDragOver={(e) => handleAgentDragOver(e, agent.id)}
+              onDrop={(e) => handleAgentDrop(e, agent.id)}
+              onDragEnd={handleAgentDragEnd}
               key={agent.id}
             />
           ))}
@@ -4342,7 +4386,11 @@ function AgentProfileCard({
   runAgentInPane,
   runAgentInNewPane,
   isDragging,
-  onDragHandlePointerDown
+  onDragHandlePointerDown,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd
 }: {
   agent: AgentProfile;
   activePaneId: string | null;
@@ -4352,6 +4400,10 @@ function AgentProfileCard({
   runAgentInNewPane: (agentId: string) => void;
   isDragging?: boolean;
   onDragHandlePointerDown?: (e: React.PointerEvent) => void;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
+  onDragEnd?: () => void;
 }) {
   const [draft, setDraft] = useState(agent);
   const [expanded, setExpanded] = useState(false);
@@ -4413,13 +4465,23 @@ function AgentProfileCard({
   return (
     <article
       data-agent-card-id={agent.id}
+      draggable={!expanded}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
       className={`profile-card agent-profile-card${isDragging ? ' is-dragging' : ''}${expanded ? ' is-expanded' : ''}${runMenuOpen ? ' is-menu-open' : ''}`}
     >
       <div className="agent-profile-top" style={{ display: 'flex', alignItems: 'center' }}>
         <button
           type="button"
           className="agent-drag-handle"
-          onPointerDown={onDragHandlePointerDown}
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.stopPropagation();
+            onDragHandlePointerDown?.(e);
+          }}
           title="Drag to reorder agent profiles"
           aria-label="Drag to reorder agent profiles"
           style={{
