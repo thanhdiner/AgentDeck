@@ -9830,7 +9830,7 @@ function SkillsPanel() {
             onClick={handleDeleteAllCustomSkills}
             title="Delete all custom skills"
           >
-            Delete All
+            Del All
           </button>
         ) : (
           <div data-delete-all-wrapper className="inline-confirm-delete-group" style={{ display: 'inline-flex', gap: '4px', alignItems: 'center' }}>
