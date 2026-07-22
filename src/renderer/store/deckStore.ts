@@ -1741,6 +1741,7 @@ export type DeckStore = AppStateSnapshot & {
   createSkill: (skillDraft: Omit<Skill, 'id' | 'isSystem' | 'updatedAt'>) => void;
   updateSkill: (skillId: SkillId, patch: Partial<Omit<Skill, 'id' | 'isSystem'>>) => void;
   deleteSkill: (skillId: SkillId) => void;
+  deleteAllCustomSkills: () => void;
   /** Toggle favorite pin — pinned skills float to the top of the Skills panel. */
   togglePinSkill: (skillId: SkillId) => void;
   /** Reorder skills list (Default order). place = before | after the target skill. */
@@ -4216,6 +4217,21 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
         pinnedSkillIds: (state.pinnedSkillIds || []).filter((id) => id !== skillId),
         tasks: state.tasks.map((task) =>
           task.skillId === skillId ? { ...task, skillId: null, updatedAt: now() } : task
+        )
+      };
+    });
+    persist(get());
+  },
+
+  deleteAllCustomSkills: () => {
+    set((state) => {
+      const customSkillIds = new Set(state.skills.filter((s) => !s.isSystem).map((s) => s.id));
+      if (customSkillIds.size === 0) return state;
+      return {
+        skills: state.skills.filter((s) => s.isSystem),
+        pinnedSkillIds: (state.pinnedSkillIds || []).filter((id) => !customSkillIds.has(id)),
+        tasks: state.tasks.map((task) =>
+          task.skillId && customSkillIds.has(task.skillId) ? { ...task, skillId: null, updatedAt: now() } : task
         )
       };
     });

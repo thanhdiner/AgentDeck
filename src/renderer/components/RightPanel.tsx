@@ -9776,6 +9776,17 @@ function SkillsPanel() {
     });
   };
 
+  const handleDeleteAllCustomSkills = () => {
+    const customCount = skills.filter((s) => !s.isSystem).length;
+    if (customCount === 0) {
+      window.alert('No custom skills to delete.');
+      return;
+    }
+    if (window.confirm(`Are you sure you want to delete all ${customCount} custom skills? This cannot be undone.`)) {
+      useDeckStore.getState().deleteAllCustomSkills();
+    }
+  };
+
   return (
     <div
       className="skills-panel"
@@ -9798,6 +9809,14 @@ function SkillsPanel() {
         </button>
         <button onClick={() => setShowImport(!showImport)}>
           {showImport ? 'Cancel Import' : 'Import Skill'}
+        </button>
+        <button
+          type="button"
+          style={{ background: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.4)', color: '#fca5a5' }}
+          onClick={handleDeleteAllCustomSkills}
+          title="Delete all custom skills"
+        >
+          🗑️ Delete All
         </button>
       </div>
 
