@@ -8806,10 +8806,18 @@ function SkillsPanel() {
     }
   }, [customFolders]);
 
-  const handleCreateFolder = () => {
-    const input = window.prompt('Nhập tên thư mục mới (ví dụ: 10. DEPLOYMENT hoặc Custom Folder):');
-    if (!input || !input.trim()) return;
-    const name = input.trim();
+  const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+
+  const [editingFolderName, setEditingFolderName] = useState<string | null>(null);
+  const [renameInputValue, setRenameInputValue] = useState('');
+
+  const [movingSkill, setMovingSkill] = useState<Skill | null>(null);
+  const [targetMoveFolder, setTargetMoveFolder] = useState('');
+
+  const submitCreateFolder = () => {
+    if (!newFolderName || !newFolderName.trim()) return;
+    const name = newFolderName.trim();
     if (!customFolders.includes(name)) {
       setCustomFolders((prev) => [...prev, name]);
     }
@@ -8817,12 +8825,22 @@ function SkillsPanel() {
       ...prev,
       [`cat-${name}`]: false
     }));
+    setNewFolderName('');
+    setShowCreateFolder(false);
   };
 
-  const handleRenameFolder = (oldName: string) => {
-    const input = window.prompt(`Đổi tên thư mục "${oldName}":`, oldName);
-    if (!input || !input.trim() || input.trim() === oldName) return;
-    const newName = input.trim();
+  const startRenameFolder = (oldName: string) => {
+    setEditingFolderName(oldName);
+    setRenameInputValue(oldName);
+  };
+
+  const submitRenameFolder = (oldName: string) => {
+    const trimmed = renameInputValue.trim();
+    if (!trimmed || trimmed === oldName) {
+      setEditingFolderName(null);
+      return;
+    }
+    const newName = trimmed;
 
     setCustomFolders((prev) => prev.map((f) => (f === oldName ? newName : f)));
 
@@ -8831,11 +8849,10 @@ function SkillsPanel() {
         updateSkill(skill.id, { category: newName });
       }
     }
+    setEditingFolderName(null);
   };
 
   const handleDeleteFolder = (folderName: string) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa thư mục "${folderName}"?\n(Các skill trong thư mục này sẽ chuyển về Chưa phân loại)`)) return;
-
     setCustomFolders((prev) => prev.filter((f) => f !== folderName));
 
     for (const skill of skills) {
@@ -8845,19 +8862,19 @@ function SkillsPanel() {
     }
   };
 
-  const handleMoveSkillToFolder = (skill: Skill) => {
-    const current = skill.category || 'Chưa phân loại (Uncategorized)';
-    const folderListStr = categorySuggestions.length > 0 ? categorySuggestions.map((c) => `• ${c}`).join('\n') : '(Chưa có thư mục nào)';
-    const choice = window.prompt(
-      `Di chuyển "${skill.name}" vào thư mục:\nThư mục hiện tại: ${current}\n\nDanh sách thư mục có sẵn:\n${folderListStr}\n\nNhập tên thư mục mới hoặc chọn từ danh sách trên (bỏ trống để chuyển về Chưa phân loại):`,
-      skill.category || ''
-    );
-    if (choice === null) return;
-    const newCat = choice.trim() || undefined;
+  const startMoveSkill = (skill: Skill) => {
+    setMovingSkill(skill);
+    setTargetMoveFolder(skill.category || '');
+  };
+
+  const submitMoveSkill = () => {
+    if (!movingSkill) return;
+    const newCat = targetMoveFolder.trim() || undefined;
     if (newCat && !customFolders.includes(newCat)) {
       setCustomFolders((prev) => [...prev, newCat]);
     }
-    updateSkill(skill.id, { category: newCat });
+    updateSkill(movingSkill.id, { category: newCat });
+    setMovingSkill(null);
   };
 
   const [isCreating, setIsCreating] = useState(false);
@@ -10424,8 +10441,13 @@ function SkillsPanel() {
         <button className="primary-btn" onClick={() => { setIsCreating(!isCreating); handleCancelEdit(); }}>
           {isCreating ? 'Cancel' : 'Add'}
         </button>
-        <button type="button" onClick={handleCreateFolder} title="Tạo thư mục mới để quản lý skills">
-          + Folder
+        <button
+          type="button"
+          className={showCreateFolder ? 'primary-btn' : ''}
+          onClick={() => setShowCreateFolder(!showCreateFolder)}
+          title="Tạo thư mục mới để quản lý skills"
+        >
+          {showCreateFolder ? 'Cancel' : '+ Folder'}
         </button>
         <button onClick={() => setShowImport(!showImport)}>
           {showImport ? 'Cancel' : 'Import'}
@@ -10472,6 +10494,62 @@ function SkillsPanel() {
           </div>
         )}
       </div>
+
+      {showCreateFolder && (
+        <div
+          className="create-folder-panel"
+          style={{
+            padding: '8px 10px',
+            margin: '6px 0',
+            background: 'rgba(255, 255, 255, 0.04)',
+            border: '1px solid rgba(56, 189, 248, 0.3)',
+            borderRadius: '6px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px'
+          }}
+        >
+          <div style={{ fontSize: '11px', fontWeight: 600, color: '#38bdf8' }}>📁 Tạo Thư Mục Mới</div>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <input
+              type="text"
+              placeholder="Tên thư mục (ví dụ: 10. DEPLOYMENT hoặc Custom Folder)..."
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submitCreateFolder();
+                if (e.key === 'Escape') setShowCreateFolder(false);
+              }}
+              autoFocus
+              style={{
+                flex: 1,
+                padding: '4px 8px',
+                background: '#141414',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '4px',
+                color: '#f4f4f5',
+                fontSize: '12px',
+                outline: 'none'
+              }}
+            />
+            <button
+              type="button"
+              className="primary-btn"
+              onClick={submitCreateFolder}
+              style={{ padding: '4px 10px', fontSize: '11px' }}
+            >
+              Tạo
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCreateFolder(false)}
+              style={{ padding: '4px 8px', fontSize: '11px' }}
+            >
+              Hủy
+            </button>
+          </div>
+        </div>
+      )}
 
       {isCreating && (
         <div
@@ -10809,6 +10887,52 @@ function SkillsPanel() {
                 const isCat = entry.key.startsWith('cat-');
                 const catFolderName = isCat ? entry.key.slice(4) : '';
 
+                if (isCat && editingFolderName === catFolderName) {
+                  return (
+                    <div
+                      key={entry.key}
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '4px 0', padding: '4px 8px', background: 'rgba(56, 189, 248, 0.08)', borderRadius: '6px', border: '1px solid rgba(56, 189, 248, 0.3)' }}
+                    >
+                      <span style={{ fontSize: '12px' }}>📁</span>
+                      <input
+                        type="text"
+                        value={renameInputValue}
+                        onChange={(e) => setRenameInputValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') submitRenameFolder(catFolderName);
+                          if (e.key === 'Escape') setEditingFolderName(null);
+                        }}
+                        autoFocus
+                        style={{
+                          flex: 1,
+                          padding: '3px 8px',
+                          background: '#141414',
+                          border: '1px solid #38bdf8',
+                          borderRadius: '4px',
+                          color: '#f4f4f5',
+                          fontSize: '12px',
+                          outline: 'none'
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="primary-btn"
+                        style={{ padding: '3px 10px', fontSize: '11px' }}
+                        onClick={() => submitRenameFolder(catFolderName)}
+                      >
+                        Lưu
+                      </button>
+                      <button
+                        type="button"
+                        style={{ padding: '3px 8px', fontSize: '11px' }}
+                        onClick={() => setEditingFolderName(null)}
+                      >
+                        Hủy
+                      </button>
+                    </div>
+                  );
+                }
+
                 return (
                   <div
                     key={entry.key}
@@ -10858,7 +10982,7 @@ function SkillsPanel() {
                           style={{ width: '22px', height: '22px', padding: 0, fontSize: '11px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#e4e4e7', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleRenameFolder(catFolderName);
+                            startRenameFolder(catFolderName);
                           }}
                         >
                           ✏️
@@ -11007,7 +11131,7 @@ function SkillsPanel() {
                   {!skill.isSystem && (
                     <button
                       type="button"
-                      onClick={() => handleMoveSkillToFolder(skill)}
+                      onClick={() => startMoveSkill(skill)}
                       title="Di chuyển skill vào thư mục"
                     >
                       📁 {isGrid ? 'Move' : 'Folder'}
@@ -11177,6 +11301,115 @@ function SkillsPanel() {
           </>
         )}
       </div>
+
+      {movingSkill && (
+        <div
+          className="modal-overlay"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000
+          }}
+          onClick={() => setMovingSkill(null)}
+        >
+          <div
+            className="move-skill-modal"
+            style={{
+              width: '360px',
+              maxWidth: '90vw',
+              background: '#18181b',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '8px',
+              padding: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.5)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: '13px', fontWeight: 600, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>📁</span> Di chuyển Skill vào Thư Mục
+            </div>
+            <div style={{ fontSize: '12px', color: '#a1a1aa' }}>
+              Skill: <strong style={{ color: '#f4f4f5' }}>{movingSkill.name}</strong>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label style={{ fontSize: '11px', color: '#a1a1aa' }}>Nhập tên thư mục mới hoặc chọn từ danh sách:</label>
+              <input
+                type="text"
+                placeholder="Chọn hoặc nhập tên thư mục..."
+                value={targetMoveFolder}
+                onChange={(e) => setTargetMoveFolder(e.target.value)}
+                autoFocus
+                style={{
+                  width: '100%',
+                  padding: '6px 10px',
+                  background: '#09090b',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '4px',
+                  color: '#f4f4f5',
+                  fontSize: '12px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+
+            {categorySuggestions.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxHeight: '120px', overflowY: 'auto', padding: '4px 0' }}>
+                {categorySuggestions.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    style={{
+                      padding: '3px 8px',
+                      fontSize: '11px',
+                      borderRadius: '4px',
+                      background: targetMoveFolder === cat ? '#38bdf8' : 'rgba(255, 255, 255, 0.08)',
+                      color: targetMoveFolder === cat ? '#000' : '#e4e4e7',
+                      border: 'none',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => setTargetMoveFolder(cat)}
+                  >
+                    📁 {cat}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  style={{
+                    padding: '3px 8px',
+                    fontSize: '11px',
+                    borderRadius: '4px',
+                    background: !targetMoveFolder ? '#f43f5e' : 'rgba(255, 255, 255, 0.05)',
+                    color: '#e4e4e7',
+                    border: 'none',
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => setTargetMoveFolder('')}
+                >
+                  🚫 Chưa phân loại
+                </button>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+              <button type="button" onClick={() => setMovingSkill(null)} style={{ padding: '6px 12px', fontSize: '12px' }}>
+                Hủy
+              </button>
+              <button type="button" className="primary-btn" onClick={submitMoveSkill} style={{ padding: '6px 12px', fontSize: '12px' }}>
+                Lưu di chuyển
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
