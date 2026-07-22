@@ -10019,7 +10019,7 @@ function SkillsPanel() {
         entries.push({
           kind: 'header',
           key: groupKey,
-          label: `${node.depth === 0 ? '📁' : '📂'} ${node.segmentName}`,
+          label: node.segmentName,
           count: totalCount,
           depth: node.depth,
           folderPath: node.fullPath
@@ -10049,7 +10049,7 @@ function SkillsPanel() {
     }
 
     if (uncategorized.length > 0) {
-      const label = rootFolderNodes.size > 0 ? '📁 General' : 'Custom';
+      const label = rootFolderNodes.size > 0 ? 'General' : 'Custom';
       pushGroup('custom', label, uncategorized);
     }
 
@@ -10601,7 +10601,12 @@ function SkillsPanel() {
             gap: '6px'
           }}
         >
-          <div style={{ fontSize: '11px', fontWeight: 600, color: '#38bdf8' }}>📁 Tạo Thư Mục Mới</div>
+          <div style={{ fontSize: '11px', fontWeight: 600, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+            </svg>
+            <span>Tạo Thư Mục Mới</span>
+          </div>
           <div style={{ display: 'flex', gap: '6px' }}>
             <input
               type="text"
@@ -10996,7 +11001,9 @@ function SkillsPanel() {
                         border: '1px solid rgba(56, 189, 248, 0.3)'
                       }}
                     >
-                      <span style={{ fontSize: '12px' }}>📁</span>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                      </svg>
                       <input
                         type="text"
                         value={renameInputValue}
@@ -11065,8 +11072,13 @@ function SkillsPanel() {
                       <span className="skill-group-chevron" aria-hidden>
                         {collapsed ? '▸' : '▾'}
                       </span>
-                      <span className="skill-group-label" style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                        {entry.label}
+                      <span className="skill-group-label" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                        {isCat && (
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                          </svg>
+                        )}
+                        <span>{entry.label}</span>
                       </span>
                       <span className="skill-group-count">{entry.count}</span>
                     </button>
@@ -11077,38 +11089,44 @@ function SkillsPanel() {
                           type="button"
                           className="icon-button"
                           title={`Thêm Subfolder hoặc Skill mới vào ${catFolderName}`}
-                          style={{ width: '22px', height: '22px', padding: 0, fontSize: '12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#38bdf8', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                          style={{ width: '22px', height: '22px', padding: 0, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#38bdf8', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                           onClick={(e) => {
                             e.stopPropagation();
                             setNewFolderName(`${catFolderName}/`);
                             setShowCreateFolder(true);
                           }}
                         >
-                          +
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 5v14M5 12h14" />
+                          </svg>
                         </button>
                         <button
                           type="button"
                           className="icon-button"
                           title="Đổi tên thư mục"
-                          style={{ width: '22px', height: '22px', padding: 0, fontSize: '11px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#e4e4e7', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                          style={{ width: '22px', height: '22px', padding: 0, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#e4e4e7', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                           onClick={(e) => {
                             e.stopPropagation();
                             startRenameFolder(catFolderName);
                           }}
                         >
-                          ✏️
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                          </svg>
                         </button>
                         <button
                           type="button"
                           className="icon-button"
                           title="Xóa thư mục"
-                          style={{ width: '22px', height: '22px', padding: 0, fontSize: '11px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#fca5a5', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                          style={{ width: '22px', height: '22px', padding: 0, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#fca5a5', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeleteFolder(catFolderName);
                           }}
                         >
-                          🗑️
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          </svg>
                         </button>
                       </div>
                     )}
@@ -11244,8 +11262,12 @@ function SkillsPanel() {
                       type="button"
                       onClick={() => startMoveSkill(skill)}
                       title="Di chuyển skill vào thư mục"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                     >
-                      📁 {isGrid ? 'Move' : 'Folder'}
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                      </svg>
+                      <span>{isGrid ? 'Move' : 'Folder'}</span>
                     </button>
                   )}
                   {confirmDeleteSkillId !== skill.id ? (
@@ -11446,7 +11468,10 @@ function SkillsPanel() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ fontSize: '13px', fontWeight: 600, color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>📁</span> Di chuyển Skill vào Thư Mục
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              </svg>
+              <span>Di chuyển Skill vào Thư Mục</span>
             </div>
             <div style={{ fontSize: '12px', color: '#a1a1aa' }}>
               Skill: <strong style={{ color: '#f4f4f5' }}>{movingSkill.name}</strong>
@@ -11480,6 +11505,9 @@ function SkillsPanel() {
                     key={cat}
                     type="button"
                     style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
                       padding: '3px 8px',
                       fontSize: '11px',
                       borderRadius: '4px',
@@ -11490,12 +11518,18 @@ function SkillsPanel() {
                     }}
                     onClick={() => setTargetMoveFolder(cat)}
                   >
-                    📁 {cat}
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                    </svg>
+                    <span>{cat}</span>
                   </button>
                 ))}
                 <button
                   type="button"
                   style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
                     padding: '3px 8px',
                     fontSize: '11px',
                     borderRadius: '4px',
@@ -11506,7 +11540,11 @@ function SkillsPanel() {
                   }}
                   onClick={() => setTargetMoveFolder('')}
                 >
-                  🚫 Chưa phân loại
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                  </svg>
+                  <span>Chưa phân loại</span>
                 </button>
               </div>
             )}
