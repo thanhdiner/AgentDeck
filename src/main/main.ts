@@ -155,7 +155,7 @@ function createWindow() {
     minHeight: 640,
     title: 'AgentDeck',
     backgroundColor: '#101010',
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,

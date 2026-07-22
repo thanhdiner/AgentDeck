@@ -394,13 +394,25 @@ export function writeTerminal(paneId: string, data: string): boolean {
     return false;
   }
 
+  // Wrap multi-character paste inputs in bracketed paste mode if not already wrapped.
+  // This prevents interactive CLI agents (agy, claude, ink, readline) from rendering character-by-character.
+  let writePayload = data;
+  if (
+    data.length > 1 &&
+    !data.startsWith('\x1b[200~') &&
+    !data.startsWith('\x1b') &&
+    !data.startsWith('\u001b')
+  ) {
+    writePayload = `\x1b[200~${data}\x1b[201~`;
+  }
+
   // Fast path: for normal typing, commands, and prompts (<= 4096 chars) when queue is idle,
   // write directly to pty process for immediate 0ms response time.
   const queue = writeQueues.get(paneId);
   const isQueueEmpty = !queue || queue.length === 0;
-  if (data.length <= 4096 && isQueueEmpty && !writeActive.get(paneId)) {
+  if (writePayload.length <= 4096 && isQueueEmpty && !writeActive.get(paneId)) {
     try {
-      ptyProcess.write(data);
+      ptyProcess.write(writePayload);
       return true;
     } catch (err) {
       console.error(`[TERMINAL] Failed to write short input to pane ${paneId}:`, err);

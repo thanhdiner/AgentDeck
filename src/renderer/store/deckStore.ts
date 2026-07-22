@@ -1235,7 +1235,29 @@ const mergeDefaults = (snapshot: AppStateSnapshot, storageInfo: AppStorageInfo |
       ? snapshot.projects
       : workspaces.map(projectFromWorkspace);
 
-  const userSkills = Array.isArray(snapshot.skills) ? snapshot.skills.filter((s) => !s.isSystem) : [];
+  const sanitizeSkill = (s: any): Skill => ({
+    id: typeof s?.id === 'string' && s.id ? s.id : `skill-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    name: typeof s?.name === 'string' && s.name.trim() ? s.name.trim() : 'Untitled Skill',
+    description: typeof s?.description === 'string' ? s.description : '',
+    promptTemplate:
+      typeof s?.promptTemplate === 'string'
+        ? s.promptTemplate
+        : typeof s?.prompt === 'string'
+          ? s.prompt
+          : '',
+    allowedTools: typeof s?.allowedTools === 'string' ? s.allowedTools : '',
+    fileScope: typeof s?.fileScope === 'string' ? s.fileScope : '',
+    version: typeof s?.version === 'string' && s.version.trim() ? s.version.trim() : '1.0.0',
+    isSystem: Boolean(s?.isSystem),
+    updatedAt:
+      typeof s?.updatedAt === 'number' && !isNaN(s.updatedAt) && s.updatedAt > 0
+        ? s.updatedAt
+        : Date.now()
+  });
+
+  const userSkills = Array.isArray(snapshot.skills)
+    ? snapshot.skills.filter((s) => !s.isSystem).map(sanitizeSkill)
+    : [];
   const systemSkillsInSnapshot = Array.isArray(snapshot.skills) ? snapshot.skills.filter((s) => s.isSystem) : [];
   const removedSystemSkillIds = Array.isArray(snapshot.removedSystemSkillIds)
     ? snapshot.removedSystemSkillIds

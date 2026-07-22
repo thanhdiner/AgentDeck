@@ -578,9 +578,10 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
         } else if (startedRef.current) {
           const textNormalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
           const textCleaned = textNormalized.replace(/^\n+|\n+$/g, '');
-          const hasNewline = textCleaned.includes('\n');
-          const payload = hasNewline ? `\x1b[200~${textCleaned}\x1b[201~` : textCleaned;
-          window.agentDeck.terminalWrite(pane.id, payload);
+          if (textCleaned) {
+            const payload = `\x1b[200~${textCleaned}\x1b[201~`;
+            window.agentDeck.terminalWrite(pane.id, payload);
+          }
           requestAnimationFrame(() => terminalRef.current?.focus());
         }
       }
@@ -1658,7 +1659,8 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
 
         const hasQuotes = (trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"));
         const formatted = hasQuotes ? trimmed : `"${trimmed}"`;
-        window.agentDeck.terminalWrite(pane.id, formatted);
+        const payload = `\x1b[200~${formatted}\x1b[201~`;
+        window.agentDeck.terminalWrite(pane.id, payload);
         requestAnimationFrame(() => {
           terminalRef.current?.focus();
         });
@@ -1925,9 +1927,10 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
             }
             const textNormalized = clipText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
             const textCleaned = textNormalized.replace(/^\n+|\n+$/g, '');
-            const hasNewline = textCleaned.includes('\n');
-            const payload = hasNewline ? `\x1b[200~${textCleaned}\x1b[201~` : textCleaned;
-            window.agentDeck.terminalWrite(pane.id, payload);
+            if (textCleaned) {
+              const payload = `\x1b[200~${textCleaned}\x1b[201~`;
+              window.agentDeck.terminalWrite(pane.id, payload);
+            }
           }
         });
       }
@@ -2032,6 +2035,19 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
       terminalRef.current?.focus();
     });
   }, [active]);
+
+  useEffect(() => {
+    const handleFocusEvent = (e: Event) => {
+      const custom = e as CustomEvent<{ paneId: string }>;
+      if (custom.detail?.paneId === pane.id) {
+        requestAnimationFrame(() => {
+          terminalRef.current?.focus();
+        });
+      }
+    };
+    window.addEventListener('agentdeck:focus-terminal', handleFocusEvent);
+    return () => window.removeEventListener('agentdeck:focus-terminal', handleFocusEvent);
+  }, [pane.id]);
 
   useEffect(() => {
     if (pane.processStatus === 'ready' || pane.processStatus === 'running' || pane.processStatus === 'idle') {
@@ -2151,7 +2167,7 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
         e.preventDefault();
         e.stopPropagation();
         setIsDragOver(true);
-        paneRef.current?.setAttribute('data-skill-drop-label', 'Drop to paste workspace root');
+        paneRef.current?.setAttribute('data-skill-drop-label', 'Drop skill to paste file path');
       }}
       onDragLeave={(e) => {
         e.preventDefault();
@@ -2188,11 +2204,10 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
         if (!skill) return;
 
         if (inactive) {
-          window.alert(`Please start the terminal in '${pane.title}' before pasting workspace path.`);
+          window.alert(`Please start the terminal in '${pane.title}' before pasting skill path.`);
           return;
         }
 
-        // Drop skill → paste workspace root path (agents read absolute paths well; no auto-Enter)
         const rootPath = (
           activeWorkspace?.rootPath ||
           state.workspaces.find((w) => w.id === state.activeWorkspaceId)?.rootPath ||
@@ -2202,8 +2217,51 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
           window.alert('No workspace root path available. Open a workspace first.');
           return;
         }
+
+        const slug = skill.name
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+        const filename = `${slug}.SKILL.md`;
+        const relPath = `.claude/skills/${filename}`;
+
+        const desc = (skill.description || skill.name).trim() || skill.name;
+        const descLines = desc.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+        const descBlock =
+          descLines.length <= 1
+            ? `description: ${JSON.stringify(desc)}`
+            : ['description: >', ...descLines.map((l) => `  ${l}`)].join('\n');
+        const extra: string[] = [];
+        if (skill.version?.trim()) extra.push(`version: ${JSON.stringify(skill.version.trim())}`);
+        if (skill.allowedTools?.trim()) extra.push(`allowed-tools: ${JSON.stringify(skill.allowedTools.trim())}`);
+        if (skill.fileScope?.trim()) extra.push(`file-scope: ${JSON.stringify(skill.fileScope.trim())}`);
+        extra.push(`metadata: ${JSON.stringify({ displayName: skill.name, source: 'agentdeck' })}`);
+        const body = (skill.promptTemplate || '').trim() || `# ${skill.name}\n\n(No instructions yet.)`;
+        const mdContent = [
+          '---',
+          `name: ${slug}`,
+          descBlock,
+          ...extra,
+          '---',
+          '',
+          body.startsWith('#') ? body : `# ${skill.name}\n\n${body}`,
+          ''
+        ].join('\n');
+
+        void window.agentDeck.writeWorkspaceFile(rootPath, relPath, mdContent);
+
+        const isWin = navigator.userAgent.includes('Windows') || rootPath.includes('\\');
+        const sep = isWin ? '\\' : '/';
+        const normRoot = rootPath.replace(/[/\\]+/g, sep).replace(/[/\\]$/, '');
+        const fullPath = `${normRoot}${sep}.claude${sep}skills${sep}${filename}`;
+
         state.selectPane(pane.id);
-        window.agentDeck.terminalWrite(pane.id, `"${rootPath}"`);
+        const payload = `\x1b[200~"${fullPath}"\x1b[201~`;
+        window.agentDeck.terminalWrite(pane.id, payload);
+        requestAnimationFrame(() => {
+          terminalRef.current?.focus();
+        });
       }}
     >
       {/* Terminal Viewport Container */}

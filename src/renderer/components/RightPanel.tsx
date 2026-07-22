@@ -8647,15 +8647,17 @@ function SkillsPanel() {
   const clearSkillDropHover = useCallback(() => {
     const el = skillDropHoverRef.current;
     if (el) {
-      el.classList.remove('skill-drop-target');
+      el.classList.remove('skill-drop-target', 'skill-drop-target-before', 'skill-drop-target-after');
       el.removeAttribute('data-skill-drop-label');
       skillDropHoverRef.current = null;
     }
     document.body.classList.remove('is-skill-dragging-drop');
-    document.querySelectorAll('.skill-drop-target').forEach((node) => {
-      node.classList.remove('skill-drop-target');
-      (node as HTMLElement).removeAttribute('data-skill-drop-label');
-    });
+    document
+      .querySelectorAll('.skill-drop-target, .skill-drop-target-before, .skill-drop-target-after')
+      .forEach((node) => {
+        node.classList.remove('skill-drop-target', 'skill-drop-target-before', 'skill-drop-target-after');
+        (node as HTMLElement).removeAttribute('data-skill-drop-label');
+      });
   }, []);
 
   const updateSkillDropHover = useCallback(
@@ -8663,6 +8665,9 @@ function SkillsPanel() {
       const stack = document.elementsFromPoint(clientX, clientY);
       let terminal: HTMLElement | null = null;
       let task: HTMLElement | null = null;
+      let skillCard: HTMLElement | null = null;
+      const currentDragId = pointerReorderRef.current?.skillId;
+
       for (const node of stack) {
         if (!(node instanceof Element)) continue;
         if (!terminal) {
@@ -8673,23 +8678,60 @@ function SkillsPanel() {
           const c = node.closest('.task-card') as HTMLElement | null;
           if (c) task = c;
         }
+        if (!skillCard && currentDragId) {
+          const s = node.closest('[data-skill-card-id]') as HTMLElement | null;
+          if (s && s.getAttribute('data-skill-card-id') !== currentDragId) {
+            skillCard = s;
+          }
+        }
         if (terminal || task) break;
       }
-      // Prefer terminal (run) over task (assign) when overlapping
+
       const next = terminal || task;
       const prev = skillDropHoverRef.current;
-      if (prev === next) return;
-      if (prev) {
-        prev.classList.remove('skill-drop-target');
+
+      // Clean up previous terminal/task drop target if target changed
+      if (prev && prev !== next && prev !== skillCard) {
+        prev.classList.remove('skill-drop-target', 'skill-drop-target-before', 'skill-drop-target-after');
         prev.removeAttribute('data-skill-drop-label');
       }
-      skillDropHoverRef.current = next;
+
+      // Clean up reorder insertion lines on any card other than currently hovered skillCard
+      document.querySelectorAll('.skill-drop-target-before, .skill-drop-target-after').forEach((node) => {
+        if (node !== skillCard) {
+          node.classList.remove('skill-drop-target-before', 'skill-drop-target-after');
+        }
+      });
+
       if (next) {
+        skillDropHoverRef.current = next;
         next.classList.add('skill-drop-target');
         next.setAttribute(
           'data-skill-drop-label',
-          terminal ? 'Drop to paste workspace root' : 'Drop to assign skill'
+          terminal ? 'Drop to paste skill path' : 'Drop to assign skill'
         );
+      } else if (skillCard) {
+        skillDropHoverRef.current = skillCard;
+        const rect = skillCard.getBoundingClientRect();
+        const isGrid = skillsListRef.current?.classList.contains('is-grid');
+        let place: 'before' | 'after' = 'after';
+        if (isGrid) {
+          const midX = rect.left + rect.width / 2;
+          place = clientX < midX ? 'before' : 'after';
+        } else {
+          const midY = rect.top + rect.height / 2;
+          place = clientY < midY ? 'before' : 'after';
+        }
+
+        if (place === 'before') {
+          skillCard.classList.remove('skill-drop-target-after');
+          skillCard.classList.add('skill-drop-target-before');
+        } else {
+          skillCard.classList.remove('skill-drop-target-before');
+          skillCard.classList.add('skill-drop-target-after');
+        }
+      } else {
+        skillDropHoverRef.current = null;
       }
     },
     []
@@ -8698,15 +8740,14 @@ function SkillsPanel() {
   const finishPointerReorder = useCallback(
     (clientX?: number, clientY?: number) => {
       const drag = pointerReorderRef.current;
-      const hadSession = Boolean(drag || pointerListenersCleanupRef.current);
-      // Idempotent — safe if pointerup + blur both fire
-      if (!hadSession) return;
-
-      const hoverEl = skillDropHoverRef.current;
       pointerReorderRef.current = null;
+      const hadSession = Boolean(drag || pointerListenersCleanupRef.current);
       detachPointerListeners();
       stopAutoScroll();
       clearSkillDropHover();
+      if (!hadSession) return;
+
+      const hoverEl = skillDropHoverRef.current;
       if (dragOverRaf.current) {
         cancelAnimationFrame(dragOverRaf.current);
         dragOverRaf.current = 0;
@@ -8730,7 +8771,6 @@ function SkillsPanel() {
         if (paneEl) {
           const paneId = paneEl.getAttribute('data-pane-id');
           if (!paneId) return;
-          // Find pane across workspaces for inactive check + root path
           let inactive = false;
           let title = 'terminal';
           let rootPath = '';
@@ -8750,26 +8790,70 @@ function SkillsPanel() {
             rootPath = (activeWs?.rootPath || '').trim();
           }
           if (inactive) {
-            window.alert(`Please start the terminal in '${title}' before pasting workspace path.`);
+            window.alert(`Please start the terminal in '${title}' before pasting skill path.`);
             return;
           }
           if (!rootPath) {
             window.alert('No workspace root path available. Open a workspace first.');
             return;
           }
-          // Paste workspace root only — agents read absolute paths well (no auto-Enter)
+
+          const filename = skillFilename(skill);
+          const relPath = `.claude/skills/${filename}`;
+          const mdContent = skillToSkillMd(skill);
+          void window.agentDeck.writeWorkspaceFile(rootPath, relPath, mdContent);
+
+          const isWin = navigator.userAgent.includes('Windows') || rootPath.includes('\\');
+          const sep = isWin ? '\\' : '/';
+          const normRoot = rootPath.replace(/[/\\]+/g, sep).replace(/[/\\]$/, '');
+          const fullPath = `${normRoot}${sep}.claude${sep}skills${sep}${filename}`;
+
           state.selectPane(paneId);
-          window.agentDeck.terminalWrite(paneId, `"${rootPath}"`);
+          const payload = `\x1b[200~"${fullPath}"\x1b[201~`;
+          window.agentDeck.terminalWrite(paneId, payload);
+          window.dispatchEvent(new CustomEvent('agentdeck:focus-terminal', { detail: { paneId } }));
           return;
         }
 
         if (taskEl) {
           const taskId = taskEl.getAttribute('data-task-id');
           if (taskId) state.updateTask(taskId, { skillId: drag.skillId });
+          return;
+        }
+
+        // Drop on another skill card -> Reorder skills list to target position
+        if (canReorderSkills) {
+          const stack = document.elementsFromPoint(clientX, clientY);
+          let overSkillEl: HTMLElement | null = null;
+          for (const node of stack) {
+            if (node instanceof Element) {
+              const card = node.closest('[data-skill-card-id]') as HTMLElement | null;
+              if (card && card.getAttribute('data-skill-card-id') !== drag.skillId) {
+                overSkillEl = card;
+                break;
+              }
+            }
+          }
+          if (overSkillEl) {
+            const targetSkillId = overSkillEl.getAttribute('data-skill-card-id');
+            if (targetSkillId && targetSkillId !== drag.skillId) {
+              const rect = overSkillEl.getBoundingClientRect();
+              const isGrid = skillsListRef.current?.classList.contains('is-grid');
+              let place: 'before' | 'after' = 'after';
+              if (isGrid) {
+                const midX = rect.left + rect.width / 2;
+                place = clientX < midX ? 'before' : 'after';
+              } else {
+                const midY = rect.top + rect.height / 2;
+                place = clientY < midY ? 'before' : 'after';
+              }
+              moveSkill(drag.skillId, targetSkillId, place);
+            }
+          }
         }
       }
     },
-    [clearSkillDropHover, detachPointerListeners, setScrollFrozen, stopAutoScroll]
+    [canReorderSkills, clearSkillDropHover, detachPointerListeners, moveSkill, setScrollFrozen, stopAutoScroll]
   );
 
   // Stable refs so window listeners always call latest handlers
@@ -8815,13 +8899,6 @@ function SkillsPanel() {
 
         e.preventDefault();
         updateAutoScrollFromPointerRef.current(e.clientX, e.clientY);
-        // Only live-reorder while pointer is over the skills list
-        const overList = skillsListRef.current?.contains(
-          document.elementFromPoint(e.clientX, e.clientY) as Node
-        );
-        if (overList) {
-          applyReorderAtPointRef.current(e.clientX, e.clientY, drag.skillId);
-        }
         updateSkillDropHoverRef.current(e.clientX, e.clientY);
       };
 
@@ -9032,36 +9109,74 @@ function SkillsPanel() {
   const parseSkillMd = (raw: string) => {
     const text = raw.replace(/^\uFEFF/, '').trim();
     const fmMatch = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
-    if (!fmMatch) {
-      throw new Error('Not a SKILL.md file (missing YAML frontmatter between --- lines).');
+    if (fmMatch) {
+      const fm = parseFrontmatterBlock(fmMatch[1]);
+      const body = (fmMatch[2] || '').trim();
+      let name =
+        (fm['metadata'] && (() => {
+          try {
+            const meta = JSON.parse(fm['metadata']) as { displayName?: string };
+            return meta.displayName?.trim() || '';
+          } catch {
+            return '';
+          }
+        })()) ||
+        fm.name?.trim() ||
+        fm.title?.trim() ||
+        '';
+
+      if (!name) {
+        const h1Match = body.match(/^#\s+(.+)$/m);
+        if (h1Match) name = h1Match[1].trim();
+      }
+
+      const description = (fm.description || fm.desc || fm.summary || '').trim();
+      const promptTemplate = body || description;
+
+      if (!name) {
+        throw new Error('SKILL.md frontmatter requires "name" or a "# Title" header.');
+      }
+      if (!promptTemplate) {
+        throw new Error('SKILL.md body (instructions) is empty.');
+      }
+
+      return {
+        name,
+        description: description || `Skill: ${name}`,
+        promptTemplate,
+        allowedTools: (fm['allowed-tools'] || fm.allowedTools || fm.tools || '').trim(),
+        fileScope: (fm['file-scope'] || fm.fileScope || fm.scope || '').trim(),
+        version: (fm.version || '1.0.0').trim()
+      };
     }
-    const fm = parseFrontmatterBlock(fmMatch[1]);
-    const body = (fmMatch[2] || '').trim();
-    const name =
-      (fm['metadata'] && (() => {
-        try {
-          const meta = JSON.parse(fm['metadata']) as { displayName?: string };
-          return meta.displayName?.trim() || '';
-        } catch {
-          return '';
-        }
-      })()) ||
-      fm.name?.trim() ||
-      '';
-    const description = (fm.description || '').trim();
-    if (!name && !fm.name) {
-      throw new Error('SKILL.md frontmatter requires "name".');
+
+    // Markdown without frontmatter ---
+    const lines = text.split(/\r?\n/);
+    let name = '';
+    let description = '';
+    for (const line of lines) {
+      if (!name && line.startsWith('# ')) {
+        name = line.replace(/^#\s+/, '').trim();
+        continue;
+      }
+      if (name && !description && line.trim() && !line.startsWith('#')) {
+        description = line.trim();
+        break;
+      }
     }
-    if (!body) {
-      throw new Error('SKILL.md body (instructions after frontmatter) is empty.');
+
+    if (!name) {
+      const firstLine = lines.find((l) => l.trim());
+      name = firstLine ? firstLine.replace(/^#+\s*/, '').trim() : 'Imported Skill';
     }
+
     return {
-      name: name || fm.name,
-      description: description || `Skill: ${name || fm.name}`,
-      promptTemplate: body,
-      allowedTools: (fm['allowed-tools'] || fm.allowedTools || '').trim(),
-      fileScope: (fm['file-scope'] || fm.fileScope || '').trim(),
-      version: (fm.version || '1.0.0').trim()
+      name,
+      description: description || `Skill: ${name}`,
+      promptTemplate: text,
+      allowedTools: '',
+      fileScope: '',
+      version: '1.0.0'
     };
   };
 
@@ -9347,42 +9462,73 @@ function SkillsPanel() {
     setConfirmDeleteSkillId(skillId);
   };
 
-  const parseSkillImport = (raw: string) => {
-    const text = raw.replace(/^\uFEFF/, '').trim();
-    if (!text) throw new Error('Empty skill content.');
+  const parseSingleSkillJson = (body: Record<string, unknown>) => {
+    const name =
+      (typeof body.name === 'string' && body.name.trim()) ||
+      (typeof body.title === 'string' && body.title.trim()) ||
+      (typeof body.displayName === 'string' && body.displayName.trim()) ||
+      '';
 
-    // 1) Standard agent skill: SKILL.md with YAML frontmatter
-    if (text.startsWith('---')) {
-      return parseSkillMd(text);
-    }
+    const promptTemplate =
+      (typeof body.promptTemplate === 'string' && body.promptTemplate) ||
+      (typeof body.prompt === 'string' && body.prompt) ||
+      (typeof body.instructions === 'string' && body.instructions) ||
+      (typeof body.content === 'string' && body.content) ||
+      (typeof body.body === 'string' && body.body) ||
+      (typeof body.template === 'string' && body.template) ||
+      '';
 
-    // 2) Legacy AgentDeck JSON export
-    let parsed: Record<string, unknown>;
-    try {
-      parsed = JSON.parse(text) as Record<string, unknown>;
-    } catch {
-      throw new Error(
-        'Unrecognized skill format. Use a SKILL.md (--- frontmatter ---) or legacy agentdeck-skill JSON.'
-      );
-    }
-
-    const body =
-      parsed && typeof parsed === 'object' && parsed.kind === 'agentdeck-skill' ? parsed : parsed;
-
-    const name = typeof body.name === 'string' ? body.name.trim() : '';
-    const promptTemplate = typeof body.promptTemplate === 'string' ? body.promptTemplate : '';
     if (!name || !promptTemplate.trim()) {
-      throw new Error('Invalid skill JSON. Fields "name" and "promptTemplate" are required.');
+      throw new Error('Invalid skill JSON. Fields "name" (or "title") and "promptTemplate" (or "instructions"/"prompt"/"content") are required.');
     }
 
     return {
       name,
-      description: typeof body.description === 'string' ? body.description : '',
+      description:
+        (typeof body.description === 'string' && body.description) ||
+        (typeof body.desc === 'string' && body.desc) ||
+        (typeof body.summary === 'string' && body.summary) ||
+        `Skill: ${name}`,
       promptTemplate,
-      allowedTools: typeof body.allowedTools === 'string' ? body.allowedTools : '',
-      fileScope: typeof body.fileScope === 'string' ? body.fileScope : '',
-      version: typeof body.version === 'string' && body.version.trim() ? body.version : '1.0.0'
+      allowedTools:
+        (typeof body.allowedTools === 'string' && body.allowedTools) ||
+        (typeof body['allowed-tools'] === 'string' && body['allowed-tools']) ||
+        (typeof body.tools === 'string' && body.tools) ||
+        '',
+      fileScope:
+        (typeof body.fileScope === 'string' && body.fileScope) ||
+        (typeof body['file-scope'] === 'string' && body['file-scope']) ||
+        (typeof body.scope === 'string' && body.scope) ||
+        '',
+      version: typeof body.version === 'string' && body.version.trim() ? body.version.trim() : '1.0.0'
     };
+  };
+
+  const parseSkillImport = (raw: string) => {
+    const text = raw.replace(/^\uFEFF/, '').trim();
+    if (!text) throw new Error('Empty skill content.');
+
+    if (text.startsWith('{') || text.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed)) {
+          return parsed.map((item: unknown) => parseSingleSkillJson(item as Record<string, unknown>));
+        }
+        if (parsed && typeof parsed === 'object') {
+          if (Array.isArray(parsed.skills)) {
+            return parsed.skills.map((item: unknown) => parseSingleSkillJson(item as Record<string, unknown>));
+          }
+          const body = (parsed.kind === 'agentdeck-skill' ? parsed : parsed) as Record<string, unknown>;
+          return [parseSingleSkillJson(body)];
+        }
+      } catch (e) {
+        if (text.startsWith('{') || text.startsWith('[')) {
+          throw new Error(`Invalid JSON skill format: ${e instanceof Error ? e.message : 'JSON parse failed'}`);
+        }
+      }
+    }
+
+    return [parseSkillMd(text)];
   };
 
   /** Export as standard SKILL.md (agent-native). Optional clipboard copy of same text. */
@@ -9429,31 +9575,81 @@ function SkillsPanel() {
 
   const handleImport = (raw?: string) => {
     try {
-      const draft = parseSkillImport(raw ?? importJson);
-      createSkill(draft);
+      const drafts = parseSkillImport(raw ?? importJson);
+      if (drafts.length === 0) throw new Error('No valid skills found to import.');
+      for (const draft of drafts) {
+        createSkill(draft);
+      }
       setImportJson('');
       setShowImport(false);
-      setSkillFilter('custom');
-      setSkillSort('updated-desc');
+      setSkillFilter('all');
+      setSkillSort('default');
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to import skill.';
       window.alert(msg);
     }
   };
 
-  const handleImportFile = (file: File | null) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = typeof reader.result === 'string' ? reader.result : '';
-      handleImport(text);
-    };
-    reader.onerror = () => window.alert('Failed to read skill file.');
-    reader.readAsText(file);
+  const handleImportFiles = (files: FileList | File[] | null) => {
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+    let importedCount = 0;
+    const errors: string[] = [];
+
+    const promises = fileArray.map(
+      (file) =>
+        new Promise<void>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const text = typeof reader.result === 'string' ? reader.result : '';
+              const drafts = parseSkillImport(text);
+              for (const draft of drafts) {
+                createSkill(draft);
+                importedCount++;
+              }
+            } catch (err) {
+              errors.push(`${file.name}: ${err instanceof Error ? err.message : 'Import failed'}`);
+            }
+            resolve();
+          };
+          reader.onerror = () => {
+            errors.push(`${file.name}: Failed to read file`);
+            resolve();
+          };
+          reader.readAsText(file);
+        })
+    );
+
+    Promise.all(promises).then(() => {
+      if (importedCount > 0) {
+        setImportJson('');
+        setShowImport(false);
+        setSkillFilter('all');
+        setSkillSort('default');
+      }
+      if (errors.length > 0) {
+        window.alert(`Import results:\nImported ${importedCount} skill(s).\n\nErrors:\n${errors.join('\n')}`);
+      }
+    });
   };
 
   return (
-    <div className="skills-panel">
+    <div
+      className="skills-panel"
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes('Files')) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+        }
+      }}
+      onDrop={(e) => {
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          e.preventDefault();
+          handleImportFiles(e.dataTransfer.files);
+        }
+      }}
+    >
       <div className="panel-actions-row">
         <button className="primary-btn" onClick={() => { setIsCreating(!isCreating); handleCancelEdit(); }}>
           {isCreating ? 'Cancel' : 'Add Custom Skill'}
@@ -9549,11 +9745,11 @@ function SkillsPanel() {
           <input
             ref={importFileRef}
             type="file"
+            multiple
             accept=".md,.markdown,.json,.skill.json,text/markdown,application/json"
             style={{ display: 'none' }}
             onChange={(e) => {
-              const file = e.target.files?.[0] ?? null;
-              handleImportFile(file);
+              handleImportFiles(e.target.files);
               e.target.value = '';
             }}
           />
@@ -9803,15 +9999,23 @@ function SkillsPanel() {
               };
 
               const handleDragStart = (e: React.DragEvent) => {
-                if (canReorderSkills) {
-                  e.preventDefault();
-                  return;
-                }
                 if ((e.target as HTMLElement).closest('button, a, input, textarea')) {
                   e.preventDefault();
                   return;
                 }
+                const state = useDeckStore.getState();
+                const activeWs = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
+                const rootPath = (activeWs?.rootPath || '').trim();
+
+                const filename = skillFilename(skill);
+                const isWin = navigator.userAgent.includes('Windows') || rootPath.includes('\\');
+                const sep = isWin ? '\\' : '/';
+                const normRoot = rootPath ? rootPath.replace(/[/\\]+/g, sep).replace(/[/\\]$/, '') : '';
+                const fullPath = normRoot ? `${normRoot}${sep}.claude${sep}skills${sep}${filename}` : filename;
+                const payload = `\x1b[200~"${fullPath}"\x1b[201~`;
+
                 e.dataTransfer.setData('text/skill-id', skill.id);
+                e.dataTransfer.setData('text/plain', payload);
                 e.dataTransfer.effectAllowed = 'copyMove';
               };
 
@@ -9938,7 +10142,7 @@ function SkillsPanel() {
                   }${canReorderSkills ? ' is-reorderable' : ''}${
                     isDragging ? ' is-dragging-placeholder' : ''
                   }${isPinned ? ' is-pinned' : ''}`}
-                  draggable={!canReorderSkills}
+                  draggable={true}
                   onDragStart={handleDragStart}
                   onDoubleClick={() => !skill.isSystem && handleStartEdit(skill)}
                   title={
