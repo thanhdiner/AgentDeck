@@ -3940,16 +3940,32 @@ function AgentsPanel() {
 
         if (targetTerminalPane) {
           const paneId = targetTerminalPane.getAttribute('data-pane-id');
-          const store = useDeckStore.getState();
-          const activeTask = store.tasks.find((t) => t.paneId === paneId && t.status === 'running');
-          const activeRun = store.agentRuns.find((r) => r.terminalSessionId === paneId && r.status === 'running');
-          const isBusy = Boolean(activeTask || activeRun);
-          targetTerminalPane.classList.add('skill-drop-target');
-          if (isBusy) {
-            targetTerminalPane.setAttribute('data-skill-drop-label', '⚠️ Terminal đang chạy Agent CLI — Không thể thả');
-          } else {
-            const agentObj = store.agentProfiles.find((a) => a.id === agentId);
-            targetTerminalPane.setAttribute('data-skill-drop-label', `Drop to run ${agentObj?.name || 'Agent'} in terminal`);
+          if (paneId) {
+            const store = useDeckStore.getState();
+            const workspace = store.workspaces.find((w) => w.id === store.activeWorkspaceId);
+            const pane = workspace?.panes[paneId];
+            const assignedAgentId = workspace?.paneAgentAssignments?.[paneId];
+            const isProcessRunning = pane ? pane.processStatus === 'running' || pane.processStatus === 'ready' : false;
+            const titleLower = (pane?.title || '').toLowerCase();
+            const isAgentTitle =
+              titleLower.includes('codex') ||
+              titleLower.includes('claude') ||
+              titleLower.includes('grok') ||
+              titleLower.includes('antigravity') ||
+              titleLower.includes('agy') ||
+              titleLower.includes('opencode');
+
+            const activeTask = store.tasks.find((t) => t.paneId === paneId && t.status === 'running');
+            const activeRun = store.agentRuns.find((r) => r.terminalSessionId === paneId && r.status === 'running');
+            const isBusy = Boolean(activeTask || activeRun || (isProcessRunning && (assignedAgentId || isAgentTitle)));
+
+            targetTerminalPane.classList.add('skill-drop-target');
+            if (isBusy) {
+              targetTerminalPane.setAttribute('data-skill-drop-label', `⚠️ Terminal ${pane?.title || ''} đang chạy Agent CLI — Không thể thả`);
+            } else {
+              const agentObj = store.agentProfiles.find((a) => a.id === agentId);
+              targetTerminalPane.setAttribute('data-skill-drop-label', `Drop to run ${agentObj?.name || 'Agent'} in terminal`);
+            }
           }
           return;
         }
@@ -3970,12 +3986,25 @@ function AgentsPanel() {
           const paneId = hover.getAttribute('data-pane-id');
           if (paneId) {
             const store = useDeckStore.getState();
+            const workspace = store.workspaces.find((w) => w.id === store.activeWorkspaceId);
+            const pane = workspace?.panes[paneId];
+            const assignedAgentId = workspace?.paneAgentAssignments?.[paneId];
+            const isProcessRunning = pane ? pane.processStatus === 'running' || pane.processStatus === 'ready' : false;
+            const titleLower = (pane?.title || '').toLowerCase();
+            const isAgentTitle =
+              titleLower.includes('codex') ||
+              titleLower.includes('claude') ||
+              titleLower.includes('grok') ||
+              titleLower.includes('antigravity') ||
+              titleLower.includes('agy') ||
+              titleLower.includes('opencode');
+
             const activeTask = store.tasks.find((t) => t.paneId === paneId && t.status === 'running');
             const activeRun = store.agentRuns.find((r) => r.terminalSessionId === paneId && r.status === 'running');
-            const isBusy = Boolean(activeTask || activeRun);
+            const isBusy = Boolean(activeTask || activeRun || (isProcessRunning && (assignedAgentId || isAgentTitle)));
+
             if (isBusy) {
-              const workspace = store.workspaces.find((w) => w.id === store.activeWorkspaceId);
-              const paneTitle = workspace?.panes[paneId]?.title || 'Terminal';
+              const paneTitle = pane?.title || 'Terminal';
               window.alert(`Terminal '${paneTitle}' đang chạy Agent CLI. Vui lòng thả vào Terminal đang rảnh hoặc mở Terminal mới!`);
             } else {
               store.selectPane(paneId);
