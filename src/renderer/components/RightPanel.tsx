@@ -8316,7 +8316,7 @@ function SkillsPanel() {
    * edge auto-scroll moves the list.
    */
   const scrollFreezeCleanupRef = useRef<(() => void) | null>(null);
-  const canReorderSkills = skillSort === 'default' && skillFilter === 'all' && !searchQuery.trim();
+  const canReorderSkills = skillSort === 'default' && (skillFilter === 'all' || skillFilter === 'custom') && !searchQuery.trim();
 
   const getSkillScrollParent = useCallback((): HTMLElement | null => {
     const list = skillsListRef.current;
@@ -8824,10 +8824,12 @@ function SkillsPanel() {
           return;
         }
 
-        // Drop on another skill card -> Reorder skills list to target position
+        // Drop on another skill card or category header -> Reorder skills list or change category
         if (canReorderSkills) {
           const stack = document.elementsFromPoint(clientX, clientY);
           let overSkillEl: HTMLElement | null = null;
+          let overHeaderEl: HTMLElement | null = null;
+
           for (const node of stack) {
             if (node instanceof Element) {
               const card = node.closest('[data-skill-card-id]') as HTMLElement | null;
@@ -8835,11 +8837,20 @@ function SkillsPanel() {
                 overSkillEl = card;
                 break;
               }
+              const header = node.closest('[data-group-key]') as HTMLElement | null;
+              if (header && !overHeaderEl) {
+                overHeaderEl = header;
+              }
             }
           }
+
           if (overSkillEl) {
             const targetSkillId = overSkillEl.getAttribute('data-skill-card-id');
             if (targetSkillId && targetSkillId !== drag.skillId) {
+              const targetSkill = state.skills.find((s) => s.id === targetSkillId);
+              if (targetSkill && targetSkill.category !== undefined) {
+                state.updateSkill(drag.skillId, { category: targetSkill.category });
+              }
               const rect = overSkillEl.getBoundingClientRect();
               const isGrid = skillsListRef.current?.classList.contains('is-grid');
               let place: 'before' | 'after' = 'after';
@@ -8851,6 +8862,14 @@ function SkillsPanel() {
                 place = clientY < midY ? 'before' : 'after';
               }
               moveSkill(drag.skillId, targetSkillId, place);
+            }
+          } else if (overHeaderEl) {
+            const groupKey = overHeaderEl.getAttribute('data-group-key') || '';
+            if (groupKey.startsWith('cat-')) {
+              const newCategory = groupKey.slice(4);
+              state.updateSkill(drag.skillId, { category: newCategory });
+            } else if (groupKey === 'custom') {
+              state.updateSkill(drag.skillId, { category: '' });
             }
           }
         }
@@ -10120,6 +10139,7 @@ function SkillsPanel() {
                 return (
                   <button
                     key={entry.key}
+                    data-group-key={entry.key}
                     type="button"
                     className={`skill-group-header${collapsed ? ' is-collapsed' : ''}`}
                     onClick={() =>
