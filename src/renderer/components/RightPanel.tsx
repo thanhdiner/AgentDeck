@@ -9818,26 +9818,57 @@ function SkillsPanel() {
     >
       <div className="panel-actions-row">
         <button className="primary-btn" onClick={() => { setIsCreating(!isCreating); handleCancelEdit(); }}>
-          {isCreating ? 'Cancel' : 'Add Custom Skill'}
+          {isCreating ? 'Cancel' : 'Add'}
         </button>
         <button onClick={() => setShowImport(!showImport)}>
-          {showImport ? 'Cancel Import' : 'Import Skill'}
+          {showImport ? 'Cancel' : 'Import'}
         </button>
-        <button
-          type="button"
-          data-delete-all-wrapper
-          style={{
-            background: confirmDeleteAll ? '#ef4444' : 'rgba(239, 68, 68, 0.15)',
-            borderColor: confirmDeleteAll ? '#dc2626' : 'rgba(239, 68, 68, 0.4)',
-            color: confirmDeleteAll ? '#ffffff' : '#fca5a5',
-            fontWeight: confirmDeleteAll ? 600 : 500,
-            transition: 'all 150ms ease'
-          }}
-          onClick={handleDeleteAllCustomSkills}
-          title={confirmDeleteAll ? 'Click again to confirm delete all custom skills' : 'Delete all custom skills'}
-        >
-          {confirmDeleteAll ? 'Confirm Delete All?' : 'Delete All'}
-        </button>
+        {!confirmDeleteAll ? (
+          <button
+            type="button"
+            style={{ background: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.4)', color: '#fca5a5' }}
+            onClick={handleDeleteAllCustomSkills}
+            title="Delete all custom skills"
+          >
+            Delete All
+          </button>
+        ) : (
+          <div data-delete-all-wrapper className="inline-confirm-delete-group" style={{ display: 'inline-flex', gap: '4px', alignItems: 'center' }}>
+            <button
+              type="button"
+              className="danger-btn confirming"
+              style={{
+                background: '#ef4444',
+                borderColor: '#dc2626',
+                color: '#ffffff',
+                fontWeight: 600,
+                padding: '3px 8px',
+                borderRadius: '4px',
+                fontSize: '11px'
+              }}
+              onClick={handleDeleteAllCustomSkills}
+              title="Click OK to confirm delete all custom skills"
+            >
+              OK
+            </button>
+            <button
+              type="button"
+              style={{
+                padding: '3px 8px',
+                background: 'rgba(255, 255, 255, 0.1)',
+                borderColor: 'rgba(255, 255, 255, 0.2)',
+                color: '#a1a1aa',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '11px'
+              }}
+              onClick={() => setConfirmDeleteAll(false)}
+              title="Cancel"
+            >
+              Không
+            </button>
+          </div>
+        )}
       </div>
 
       {isCreating && (
@@ -10320,28 +10351,65 @@ function SkillsPanel() {
                       Edit
                     </button>
                   )}
-                  <button
-                    type="button"
-                    className={`danger skill-delete-btn${
-                      confirmDeleteSkillId === skill.id ? ' is-confirming' : ''
-                    }`}
-                    data-skill-delete={skill.id}
-                    title={
-                      confirmDeleteSkillId === skill.id
-                        ? 'Click again to confirm delete'
-                        : skill.isSystem
-                          ? 'Remove preinstalled skill'
-                          : 'Delete skill'
-                    }
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteSkillClick(skill.id);
-                    }}
-                  >
-                    {confirmDeleteSkillId === skill.id
-                      ? isGrid ? 'Confirm' : 'Confirm?'
-                      : isGrid ? 'Del' : 'Delete'}
-                  </button>
+                  {confirmDeleteSkillId !== skill.id ? (
+                    <button
+                      type="button"
+                      className="danger skill-delete-btn"
+                      data-skill-delete={skill.id}
+                      title={skill.isSystem ? 'Remove preinstalled skill' : 'Delete skill'}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteSkillClick(skill.id);
+                      }}
+                    >
+                      {isGrid ? 'Del' : 'Delete'}
+                    </button>
+                  ) : (
+                    <div
+                      data-skill-delete={skill.id}
+                      style={{ display: 'inline-flex', gap: '3px', alignItems: 'center' }}
+                    >
+                      <button
+                        type="button"
+                        className="danger skill-delete-btn is-confirming"
+                        style={{
+                          background: '#ef4444',
+                          borderColor: '#dc2626',
+                          color: '#ffffff',
+                          fontWeight: 600,
+                          padding: '2px 6px',
+                          fontSize: '11px',
+                          borderRadius: '4px'
+                        }}
+                        title="Click OK to confirm delete"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteSkillClick(skill.id);
+                        }}
+                      >
+                        OK
+                      </button>
+                      <button
+                        type="button"
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.1)',
+                          borderColor: 'rgba(255, 255, 255, 0.2)',
+                          color: '#a1a1aa',
+                          padding: '2px 6px',
+                          fontSize: '11px',
+                          borderRadius: '4px',
+                          cursor: 'pointer'
+                        }}
+                        title="Cancel"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConfirmDeleteSkillId(null);
+                        }}
+                      >
+                        Không
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
 
