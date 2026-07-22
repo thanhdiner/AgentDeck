@@ -9260,7 +9260,7 @@ function SkillsPanel() {
 
   /** Sectioned view when browsing everything in default order (not while searching) */
   const showSkillGroups =
-    skillFilter === 'all' && !searchQuery.trim() && skillSort === 'default' && filteredSkills.length > 0;
+    (skillFilter === 'all' || skillFilter === 'custom') && !searchQuery.trim() && skillSort === 'default' && filteredSkills.length > 0;
 
   type SkillListEntry =
     | { kind: 'header'; key: string; label: string; count: number }
