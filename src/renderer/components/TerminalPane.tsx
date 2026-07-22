@@ -2258,9 +2258,11 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
         const normRoot = rootPath.replace(/[/\\]+/g, sep).replace(/[/\\]$/, '');
         const catWinDir = catDir ? `${sep}${catDir.replace(/\//g, sep)}` : '';
         const fullPath = `${normRoot}${sep}.claude${sep}skills${catWinDir}${sep}${filename}`;
+        const cleanPath = fullPath.replace(/^"+|"+$/g, '');
+        const formattedPath = cleanPath.includes(' ') ? `"${cleanPath}"` : cleanPath;
 
         state.selectPane(pane.id);
-        const payload = `\x1b[200~"${fullPath}"\x1b[201~`;
+        const payload = `\x1b[200~${formattedPath}\x1b[201~`;
         window.agentDeck.terminalWrite(pane.id, payload);
         requestAnimationFrame(() => {
           terminalRef.current?.focus();

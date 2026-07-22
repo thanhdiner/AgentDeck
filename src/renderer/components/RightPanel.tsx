@@ -8811,8 +8811,11 @@ function SkillsPanel() {
           const catWinDir = catDir ? `${sep}${catDir.replace(/\//g, sep)}` : '';
           const fullPath = `${normRoot}${sep}.claude${sep}skills${catWinDir}${sep}${filename}`;
 
+          const cleanPath = fullPath.replace(/^"+|"+$/g, '');
+          const formattedPath = cleanPath.includes(' ') ? `"${cleanPath}"` : cleanPath;
+
           state.selectPane(paneId);
-          const payload = `\x1b[200~"${fullPath}"\x1b[201~`;
+          const payload = `\x1b[200~${formattedPath}\x1b[201~`;
           window.agentDeck.terminalWrite(paneId, payload);
           window.dispatchEvent(new CustomEvent('agentdeck:focus-terminal', { detail: { paneId } }));
           return;
@@ -10207,10 +10210,11 @@ function SkillsPanel() {
                 const normRoot = rootPath ? rootPath.replace(/[/\\]+/g, sep).replace(/[/\\]$/, '') : '';
                 const catWinDir = catDir ? `${sep}${catDir.replace(/\//g, sep)}` : '';
                 const fullPath = normRoot ? `${normRoot}${sep}.claude${sep}skills${catWinDir}${sep}${filename}` : filename;
-                const payload = `\x1b[200~"${fullPath}"\x1b[201~`;
+                const cleanPath = fullPath.replace(/^"+|"+$/g, '');
+                const formattedPath = cleanPath.includes(' ') ? `"${cleanPath}"` : cleanPath;
 
                 e.dataTransfer.setData('text/skill-id', skill.id);
-                e.dataTransfer.setData('text/plain', payload);
+                e.dataTransfer.setData('text/plain', formattedPath);
                 e.dataTransfer.effectAllowed = 'copyMove';
               };
 
