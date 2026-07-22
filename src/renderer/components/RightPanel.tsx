@@ -8834,30 +8834,49 @@ function SkillsPanel() {
     setRenameInputValue(oldName);
   };
 
-  const submitRenameFolder = (oldName: string) => {
+  const submitRenameFolder = (oldPath: string) => {
     const trimmed = renameInputValue.trim();
-    if (!trimmed || trimmed === oldName) {
+    if (!trimmed || trimmed === oldPath) {
       setEditingFolderName(null);
       return;
     }
-    const newName = trimmed;
+    const newPath = trimmed;
 
-    setCustomFolders((prev) => prev.map((f) => (f === oldName ? newName : f)));
+    setCustomFolders((prev) =>
+      prev.map((f) => {
+        if (f === oldPath) return newPath;
+        if (f.startsWith(oldPath + '/')) return newPath + f.slice(oldPath.length);
+        return f;
+      })
+    );
 
     for (const skill of skills) {
-      if (skill.category?.trim() === oldName) {
-        updateSkill(skill.id, { category: newName });
+      if (skill.category) {
+        const cat = skill.category.trim();
+        if (cat === oldPath) {
+          updateSkill(skill.id, { category: newPath });
+        } else if (cat.startsWith(oldPath + '/')) {
+          updateSkill(skill.id, { category: newPath + cat.slice(oldPath.length) });
+        }
       }
     }
     setEditingFolderName(null);
   };
 
-  const handleDeleteFolder = (folderName: string) => {
-    setCustomFolders((prev) => prev.filter((f) => f !== folderName));
+  const handleDeleteFolder = (folderPath: string) => {
+    setCustomFolders((prev) =>
+      prev.filter((f) => f !== folderPath && !f.startsWith(folderPath + '/'))
+    );
+
+    const parts = folderPath.split('/');
+    const parentPath = parts.length > 1 ? parts.slice(0, -1).join('/') : undefined;
 
     for (const skill of skills) {
-      if (skill.category?.trim() === folderName) {
-        updateSkill(skill.id, { category: undefined });
+      if (skill.category) {
+        const cat = skill.category.trim();
+        if (cat === folderPath || cat.startsWith(folderPath + '/')) {
+          updateSkill(skill.id, { category: parentPath });
+        }
       }
     }
   };
@@ -9893,8 +9912,8 @@ function SkillsPanel() {
     (skillFilter === 'all' || skillFilter === 'custom') && !searchQuery.trim() && skillSort === 'default' && filteredSkills.length > 0;
 
   type SkillListEntry =
-    | { kind: 'header'; key: string; label: string; count: number }
-    | { kind: 'skill'; key: string; skill: Skill };
+    | { kind: 'header'; key: string; label: string; count: number; depth?: number; folderPath?: string }
+    | { kind: 'skill'; key: string; skill: Skill; depth?: number };
 
   const resolveSkillCategory = (s: Skill): string => {
     if (s.category && s.category.trim()) {
@@ -9927,37 +9946,110 @@ function SkillsPanel() {
     pushGroup('pinned', '📌 Pinned', pinned);
     pushGroup('system', '⚡ System', system);
 
-    // Group custom skills by category subfolder
-    const categoryMap = new Map<string, Skill[]>();
+    // Group custom skills by multi-level folder tree
+    interface FolderTreeNode {
+      fullPath: string;
+      segmentName: string;
+      depth: number;
+      skills: Skill[];
+      children: Map<string, FolderTreeNode>;
+    }
+
+    const rootFolderNodes = new Map<string, FolderTreeNode>();
     const uncategorized: Skill[] = [];
 
+    const getOrCreateFolderNode = (folderPath: string): FolderTreeNode => {
+      const normalized = folderPath.replace(/\\+/g, '/').replace(/^\/|\/$/g, '');
+      const parts = normalized.split('/').filter(Boolean);
+      let currentMap = rootFolderNodes;
+      let currentPath = '';
+      let currentNode: FolderTreeNode | null = null;
+
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        currentPath = currentPath ? `${currentPath}/${part}` : part;
+        if (!currentMap.has(part)) {
+          const newNode: FolderTreeNode = {
+            fullPath: currentPath,
+            segmentName: part,
+            depth: i,
+            skills: [],
+            children: new Map()
+          };
+          currentMap.set(part, newNode);
+        }
+        currentNode = currentMap.get(part)!;
+        currentMap = currentNode.children;
+      }
+      return currentNode!;
+    };
+
     for (const folder of customFolders) {
-      if (folder && folder.trim() && !categoryMap.has(folder.trim())) {
-        categoryMap.set(folder.trim(), []);
+      if (folder && folder.trim()) {
+        getOrCreateFolderNode(folder.trim());
       }
     }
 
     for (const s of custom) {
       const cat = resolveSkillCategory(s);
       if (cat) {
-        if (!categoryMap.has(cat)) categoryMap.set(cat, []);
-        categoryMap.get(cat)!.push(s);
+        const node = getOrCreateFolderNode(cat);
+        node.skills.push(s);
       } else {
         uncategorized.push(s);
       }
     }
 
-    const sortedCategories = Array.from(categoryMap.keys()).sort((a, b) =>
-      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+    const traverseFolderNode = (node: FolderTreeNode, parentCollapsed: boolean) => {
+      const groupKey = `cat-${node.fullPath}`;
+      const selfCollapsed = isGroupCollapsed(groupKey);
+      const isCollapsed = parentCollapsed || selfCollapsed;
+
+      const countTotalSkills = (n: FolderTreeNode): number => {
+        let sum = n.skills.length;
+        for (const child of n.children.values()) {
+          sum += countTotalSkills(child);
+        }
+        return sum;
+      };
+
+      const totalCount = countTotalSkills(node);
+
+      if (!parentCollapsed) {
+        entries.push({
+          kind: 'header',
+          key: groupKey,
+          label: `${node.depth === 0 ? '📁' : '📂'} ${node.segmentName}`,
+          count: totalCount,
+          depth: node.depth,
+          folderPath: node.fullPath
+        });
+      }
+
+      if (!isCollapsed) {
+        for (const skill of node.skills) {
+          entries.push({ kind: 'skill', key: skill.id, skill, depth: node.depth + 1 });
+        }
+
+        const sortedChildren = Array.from(node.children.values()).sort((a, b) =>
+          a.segmentName.localeCompare(b.segmentName, undefined, { numeric: true, sensitivity: 'base' })
+        );
+        for (const child of sortedChildren) {
+          traverseFolderNode(child, isCollapsed);
+        }
+      }
+    };
+
+    const sortedRoots = Array.from(rootFolderNodes.values()).sort((a, b) =>
+      a.segmentName.localeCompare(b.segmentName, undefined, { numeric: true, sensitivity: 'base' })
     );
-    for (const cat of sortedCategories) {
-      const items = categoryMap.get(cat)!;
-      const formattedLabel = '📁 ' + cat.replace(/[/\\]+/g, ' ➔ ');
-      pushGroup(`cat-${cat}`, formattedLabel, items);
+
+    for (const rootNode of sortedRoots) {
+      traverseFolderNode(rootNode, false);
     }
 
     if (uncategorized.length > 0) {
-      const label = categoryMap.size > 0 ? '📁 General' : 'Custom';
+      const label = rootFolderNodes.size > 0 ? '📁 General' : 'Custom';
       pushGroup('custom', label, uncategorized);
     }
 
@@ -10885,13 +10977,24 @@ function SkillsPanel() {
               if (entry.kind === 'header') {
                 const collapsed = isGroupCollapsed(entry.key);
                 const isCat = entry.key.startsWith('cat-');
-                const catFolderName = isCat ? entry.key.slice(4) : '';
+                const catFolderName = isCat ? (entry.folderPath || entry.key.slice(4)) : '';
+                const depth = entry.depth || 0;
 
                 if (isCat && editingFolderName === catFolderName) {
                   return (
                     <div
                       key={entry.key}
-                      style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '4px 0', padding: '4px 8px', background: 'rgba(56, 189, 248, 0.08)', borderRadius: '6px', border: '1px solid rgba(56, 189, 248, 0.3)' }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        margin: '4px 0',
+                        padding: '4px 8px',
+                        marginLeft: `${depth * 16}px`,
+                        background: 'rgba(56, 189, 248, 0.08)',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(56, 189, 248, 0.3)'
+                      }}
                     >
                       <span style={{ fontSize: '12px' }}>📁</span>
                       <input
@@ -10937,7 +11040,15 @@ function SkillsPanel() {
                   <div
                     key={entry.key}
                     className="skill-group-header-row"
-                    style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '4px', marginTop: '4px', marginBottom: '2px' }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      width: '100%',
+                      gap: '4px',
+                      marginTop: '4px',
+                      marginBottom: '2px',
+                      paddingLeft: `${depth * 16}px`
+                    }}
                   >
                     <button
                       data-group-key={entry.key}
@@ -10965,12 +11076,12 @@ function SkillsPanel() {
                         <button
                           type="button"
                           className="icon-button"
-                          title={`Thêm Skill mới vào ${catFolderName}`}
-                          style={{ width: '22px', height: '22px', padding: 0, fontSize: '12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#e4e4e7', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                          title={`Thêm Subfolder hoặc Skill mới vào ${catFolderName}`}
+                          style={{ width: '22px', height: '22px', padding: 0, fontSize: '12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#38bdf8', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                           onClick={(e) => {
                             e.stopPropagation();
-                            setCategory(catFolderName);
-                            setIsCreating(true);
+                            setNewFolderName(`${catFolderName}/`);
+                            setShowCreateFolder(true);
                           }}
                         >
                           +
@@ -11203,6 +11314,7 @@ function SkillsPanel() {
                   }${canReorderSkills ? ' is-reorderable' : ''}${
                     isDragging ? ' is-dragging-placeholder' : ''
                   }${isPinned ? ' is-pinned' : ''}`}
+                  style={entry.depth ? { marginLeft: `${entry.depth * 16}px` } : undefined}
                   draggable={true}
                   onDragStart={handleDragStart}
                   onDoubleClick={() => !skill.isSystem && handleStartEdit(skill)}
