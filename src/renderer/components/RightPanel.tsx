@@ -3817,6 +3817,110 @@ function AgentsPanel() {
   const runAgentInNewPane = useDeckStore((state) => state.runAgentInNewPane);
   const runAgentsOnPanes = useDeckStore((state) => state.runAgentsOnPanes);
   const setPaneAgentAssignments = useDeckStore((state) => state.setPaneAgentAssignments);
+  const moveAgentProfile = useDeckStore((state) => state.moveAgentProfile);
+
+  const [draggingAgentId, setDraggingAgentId] = useState<string | null>(null);
+  const agentDropHoverRef = useRef<HTMLElement | null>(null);
+  const agentPointerReorderRef = useRef<{
+    agentId: string;
+    pointerId: number;
+    startY: number;
+    active: boolean;
+  } | null>(null);
+  const agentPointerCleanupRef = useRef<(() => void) | null>(null);
+
+  const clearAgentDropHover = useCallback(() => {
+    if (agentDropHoverRef.current) {
+      agentDropHoverRef.current.classList.remove('skill-drop-target-before', 'skill-drop-target-after');
+      agentDropHoverRef.current = null;
+    }
+  }, []);
+
+  const detachAgentPointerListeners = useCallback(() => {
+    if (agentPointerCleanupRef.current) {
+      agentPointerCleanupRef.current();
+      agentPointerCleanupRef.current = null;
+    }
+  }, []);
+
+  const beginAgentPointerReorder = useCallback(
+    (agentId: string, pointerId: number, startY: number) => {
+      detachAgentPointerListeners();
+      agentPointerReorderRef.current = {
+        agentId,
+        pointerId,
+        startY,
+        active: false
+      };
+
+      const handlePointerMove = (e: PointerEvent) => {
+        if (e.pointerId !== pointerId) return;
+        const cur = agentPointerReorderRef.current;
+        if (!cur) return;
+        if (!cur.active) {
+          if (Math.abs(e.clientY - cur.startY) < 4) return;
+          cur.active = true;
+          setDraggingAgentId(agentId);
+        }
+
+        const stack = document.elementsFromPoint(e.clientX, e.clientY);
+        let targetCard: HTMLElement | null = null;
+        for (const node of stack) {
+          if (!(node instanceof Element)) continue;
+          const card = node.closest('[data-agent-card-id]') as HTMLElement | null;
+          if (card && card.getAttribute('data-agent-card-id') !== agentId) {
+            targetCard = card;
+            break;
+          }
+        }
+
+        if (!targetCard) {
+          clearAgentDropHover();
+          return;
+        }
+
+        const rect = targetCard.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        const place: 'before' | 'after' = e.clientY < midY ? 'before' : 'after';
+
+        if (agentDropHoverRef.current !== targetCard) {
+          clearAgentDropHover();
+          agentDropHoverRef.current = targetCard;
+        }
+
+        targetCard.classList.remove('skill-drop-target-before', 'skill-drop-target-after');
+        targetCard.classList.add(place === 'before' ? 'skill-drop-target-before' : 'skill-drop-target-after');
+      };
+
+      const handlePointerUp = (e: PointerEvent) => {
+        if (e.pointerId !== pointerId) return;
+        const cur = agentPointerReorderRef.current;
+        const hover = agentDropHoverRef.current;
+        if (cur?.active && hover) {
+          const targetId = hover.getAttribute('data-agent-card-id');
+          if (targetId && targetId !== agentId) {
+            const place = hover.classList.contains('skill-drop-target-before') ? 'before' : 'after';
+            moveAgentProfile(agentId, targetId, place);
+          }
+        }
+        clearAgentDropHover();
+        setDraggingAgentId(null);
+        agentPointerReorderRef.current = null;
+        detachAgentPointerListeners();
+      };
+
+      window.addEventListener('pointermove', handlePointerMove, { passive: true });
+      window.addEventListener('pointerup', handlePointerUp, { passive: true });
+      window.addEventListener('pointercancel', handlePointerUp, { passive: true });
+
+      agentPointerCleanupRef.current = () => {
+        window.removeEventListener('pointermove', handlePointerMove);
+        window.removeEventListener('pointerup', handlePointerUp);
+        window.removeEventListener('pointercancel', handlePointerUp);
+      };
+    },
+    [clearAgentDropHover, detachAgentPointerListeners, moveAgentProfile]
+  );
   const [draft, setDraft] = useState(emptyAgentDraft);
   const [composerOpen, setComposerOpen] = useState(false);
   const [limit, setLimit] = useState(10);
@@ -4137,6 +4241,8 @@ function AgentsPanel() {
               runAgentInPane={runAgentInPane}
               runAgentInNewPane={runAgentInNewPane}
               upsertAgentProfile={upsertAgentProfile}
+              isDragging={draggingAgentId === agent.id}
+              onDragHandlePointerDown={(e) => beginAgentPointerReorder(agent.id, e.pointerId, e.clientY)}
               key={agent.id}
             />
           ))}
@@ -4234,7 +4340,9 @@ function AgentProfileCard({
   upsertAgentProfile,
   deleteAgentProfile,
   runAgentInPane,
-  runAgentInNewPane
+  runAgentInNewPane,
+  isDragging,
+  onDragHandlePointerDown
 }: {
   agent: AgentProfile;
   activePaneId: string | null;
@@ -4242,6 +4350,8 @@ function AgentProfileCard({
   deleteAgentProfile: (agentId: string) => void;
   runAgentInPane: (agentId: string, paneId?: string | null) => void;
   runAgentInNewPane: (agentId: string) => void;
+  isDragging?: boolean;
+  onDragHandlePointerDown?: (e: React.PointerEvent) => void;
 }) {
   const [draft, setDraft] = useState(agent);
   const [expanded, setExpanded] = useState(false);
@@ -4301,13 +4411,44 @@ function AgentProfileCard({
   };
 
   return (
-    <article className={`profile-card agent-profile-card${expanded ? ' is-expanded' : ''}${runMenuOpen ? ' is-menu-open' : ''}`}>
-      <div className="agent-profile-top">
+    <article
+      data-agent-card-id={agent.id}
+      className={`profile-card agent-profile-card${isDragging ? ' is-dragging' : ''}${expanded ? ' is-expanded' : ''}${runMenuOpen ? ' is-menu-open' : ''}`}
+    >
+      <div className="agent-profile-top" style={{ display: 'flex', alignItems: 'center' }}>
+        <button
+          type="button"
+          className="agent-drag-handle"
+          onPointerDown={onDragHandlePointerDown}
+          title="Drag to reorder agent profiles"
+          aria-label="Drag to reorder agent profiles"
+          style={{
+            flexShrink: 0,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '20px',
+            height: '24px',
+            background: 'transparent',
+            border: 'none',
+            color: '#71717a',
+            cursor: 'grab',
+            touchAction: 'none',
+            marginRight: '2px'
+          }}
+        >
+          <span className="skill-drag-handle-dots" aria-hidden>
+            <span /><span />
+            <span /><span />
+            <span /><span />
+          </span>
+        </button>
         <button
           type="button"
           className="agent-profile-summary"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
+          style={{ flex: 1 }}
         >
           <div className="agent-profile-summary-text">
             <div className="agent-profile-title-row">

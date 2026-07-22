@@ -1746,6 +1746,8 @@ export type DeckStore = AppStateSnapshot & {
   togglePinSkill: (skillId: SkillId) => void;
   /** Reorder skills list (Default order). place = before | after the target skill. */
   moveSkill: (draggedId: SkillId, overId: SkillId, place?: 'before' | 'after') => void;
+  /** Reorder available agents list. place = before | after target profile. */
+  moveAgentProfile: (draggedId: string, overId: string, place?: 'before' | 'after') => void;
   assignSkillToTask: (taskId: TaskId, skillId: SkillId | null) => void;
   generateContext: (workspaceId: WorkspaceId) => Promise<void>;
   sendAssistantMessage: (
@@ -3429,6 +3431,32 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
     persistImmediately(get());
   },
 
+  moveAgentProfile: (draggedId, overId, place = 'before') => {
+    if (draggedId === overId) return;
+    let changed = false;
+    set((state) => {
+      const agentProfiles = [...state.agentProfiles];
+      const from = agentProfiles.findIndex((a) => a.id === draggedId);
+      if (from < 0) return state;
+      const [item] = agentProfiles.splice(from, 1);
+      let insertAt = agentProfiles.findIndex((a) => a.id === overId);
+      if (insertAt < 0) {
+        agentProfiles.splice(from, 0, item);
+        return state;
+      }
+      if (place === 'after') insertAt += 1;
+      if (insertAt === from) {
+        agentProfiles.splice(from, 0, item);
+        return state;
+      }
+      agentProfiles.splice(insertAt, 0, item);
+      if (agentProfiles.every((a, i) => a.id === state.agentProfiles[i]?.id)) return state;
+      changed = true;
+      return { agentProfiles };
+    });
+    if (changed) persistImmediately(get());
+  },
+
   runAgentInPane: async (agentId, paneId = null) => {
     const state = get();
     const agent = state.agentProfiles.find((item) => item.id === agentId);
@@ -4238,7 +4266,7 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
     persist(get());
   },
 
-  togglePinSkill: (skillId) => {
+  togglePinSkill: (skillId: SkillId) => {
     set((state) => {
       if (!state.skills.some((s) => s.id === skillId)) return state;
       const pinned = state.pinnedSkillIds || [];
