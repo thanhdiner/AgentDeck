@@ -9836,20 +9836,6 @@ function SkillsPanel() {
           <div data-delete-all-wrapper className="inline-confirm-delete-group" style={{ display: 'inline-flex', gap: '4px', alignItems: 'center' }}>
             <button
               type="button"
-              className="btn-confirm-ok"
-              style={{
-                padding: '3px 10px',
-                borderRadius: '4px',
-                fontSize: '11px',
-                cursor: 'pointer'
-              }}
-              onClick={handleDeleteAllCustomSkills}
-              title="Click OK to confirm delete all custom skills"
-            >
-              OK
-            </button>
-            <button
-              type="button"
               className="btn-confirm-cancel"
               style={{
                 padding: '3px 8px',
@@ -9861,6 +9847,20 @@ function SkillsPanel() {
               title="Cancel"
             >
               Không
+            </button>
+            <button
+              type="button"
+              className="btn-confirm-ok"
+              style={{
+                padding: '3px 10px',
+                borderRadius: '4px',
+                fontSize: '11px',
+                cursor: 'pointer'
+              }}
+              onClick={handleDeleteAllCustomSkills}
+              title="Click OK to confirm delete all custom skills"
+            >
+              OK
             </button>
           </div>
         )}
@@ -10366,23 +10366,6 @@ function SkillsPanel() {
                     >
                       <button
                         type="button"
-                        className="btn-confirm-ok"
-                        style={{
-                          padding: '2px 6px',
-                          fontSize: '11px',
-                          borderRadius: '4px',
-                          cursor: 'pointer'
-                        }}
-                        title="Click OK to confirm delete"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteSkillClick(skill.id);
-                        }}
-                      >
-                        OK
-                      </button>
-                      <button
-                        type="button"
                         className="btn-confirm-cancel"
                         style={{
                           padding: '2px 6px',
@@ -10397,6 +10380,23 @@ function SkillsPanel() {
                         }}
                       >
                         Không
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-confirm-ok"
+                        style={{
+                          padding: '2px 6px',
+                          fontSize: '11px',
+                          borderRadius: '4px',
+                          cursor: 'pointer'
+                        }}
+                        title="Click OK to confirm delete"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteSkillClick(skill.id);
+                        }}
+                      >
+                        OK
                       </button>
                     </div>
                   )}

@@ -6488,38 +6488,37 @@ body.is-skill-reordering * {
   color: #fecaca !important;
 }
 
-.panel-actions-row button.btn-confirm-ok,
-.skill-actions button.btn-confirm-ok,
-button.btn-confirm-ok {
+.panel-actions-row button.btn-confirm-cancel,
+.skill-actions button.btn-confirm-cancel,
+button.btn-confirm-cancel {
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
   border: 1px solid #f87171 !important;
   color: #ffffff !important;
   font-weight: 700 !important;
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.5) !important;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4) !important;
 }
 
-.panel-actions-row button.btn-confirm-ok:hover,
-.skill-actions button.btn-confirm-ok:hover,
-button.btn-confirm-ok:hover {
+.panel-actions-row button.btn-confirm-cancel:hover,
+.skill-actions button.btn-confirm-cancel:hover,
+button.btn-confirm-cancel:hover {
   background: linear-gradient(135deg, #f87171 0%, #ef4444 100%) !important;
   border-color: #fca5a5 !important;
   color: #ffffff !important;
-  box-shadow: 0 2px 12px rgba(239, 68, 68, 0.7) !important;
+  box-shadow: 0 2px 12px rgba(239, 68, 68, 0.6) !important;
 }
 
-.panel-actions-row button.btn-confirm-cancel,
-.skill-actions button.btn-confirm-cancel,
-button.btn-confirm-cancel {
+.panel-actions-row button.btn-confirm-ok,
+.skill-actions button.btn-confirm-ok,
+button.btn-confirm-ok {
   background: #27272a !important;
   border: 1px solid rgba(255, 255, 255, 0.22) !important;
   color: #d4d4d8 !important;
   font-weight: 600 !important;
 }
 
-.panel-actions-row button.btn-confirm-cancel:hover,
-.skill-actions button.btn-confirm-cancel:hover,
-button.btn-confirm-cancel:hover {
+.panel-actions-row button.btn-confirm-ok:hover,
+.skill-actions button.btn-confirm-ok:hover,
+button.btn-confirm-ok:hover {
   background: #3f3f46 !important;
   border-color: rgba(255, 255, 255, 0.35) !important;
   color: #ffffff !important;
