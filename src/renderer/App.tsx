@@ -420,8 +420,8 @@ export function App() {
         return;
       }
 
-      // Check Alt + Arrow keys for directional pane focusing
-      if (event.altKey && activePaneId) {
+      // Check Alt + Arrow keys for directional pane focusing (unless inside terminal/inputs)
+      if (event.altKey && activePaneId && !isTerminalFocused) {
         const key = event.key;
         if (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight') {
           event.preventDefault();

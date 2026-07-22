@@ -1754,9 +1754,6 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
           return false;
         }
 
-        if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
-          return false;
-        }
         if (key === 'tab') return false;
         if (event.shiftKey && (key === 'h' || key === 'p')) return false;
         if (!event.shiftKey && (key === 'w' || key === 'm' || key === 'b' || key === 'i' || key === 't' || key === 'r' || key === 'o')) return false;
