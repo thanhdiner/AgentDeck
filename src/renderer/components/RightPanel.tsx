@@ -8816,6 +8816,8 @@ function SkillsPanel() {
   const [targetMoveFolder, setTargetMoveFolder] = useState('');
 
   const [confirmDeleteFolderKey, setConfirmDeleteFolderKey] = useState<string | null>(null);
+  const [dragOverFolderKey, setDragOverFolderKey] = useState<string | null>(null);
+  const html5DragSkillIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!confirmDeleteFolderKey) return;
@@ -11064,10 +11066,12 @@ function SkillsPanel() {
                   );
                 }
 
+                const isDragOverThisFolder = dragOverFolderKey === entry.key;
+
                 return (
                   <div
                     key={entry.key}
-                    className="skill-group-header-row"
+                    className={`skill-group-header-row${isDragOverThisFolder ? ' is-drag-over' : ''}`}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -11075,7 +11079,44 @@ function SkillsPanel() {
                       gap: '4px',
                       marginTop: '4px',
                       marginBottom: '2px',
-                      paddingLeft: `${depth * 16}px`
+                      paddingLeft: `${depth * 16}px`,
+                      borderRadius: '6px',
+                      background: isDragOverThisFolder ? 'rgba(56, 189, 248, 0.18)' : undefined,
+                      outline: isDragOverThisFolder ? '1px dashed #38bdf8' : undefined,
+                      transition: 'background 0.15s ease, outline 0.15s ease'
+                    }}
+                    onDragOver={(e) => {
+                      if (isCat || entry.key === 'custom') {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        if (dragOverFolderKey !== entry.key) {
+                          setDragOverFolderKey(entry.key);
+                        }
+                      }
+                    }}
+                    onDragLeave={(e) => {
+                      if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                        if (dragOverFolderKey === entry.key) {
+                          setDragOverFolderKey(null);
+                        }
+                      }
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setDragOverFolderKey(null);
+                      const targetSkillId = e.dataTransfer.getData('text/skill-id') || html5DragSkillIdRef.current;
+                      if (targetSkillId) {
+                        if (isCat) {
+                          updateSkill(targetSkillId, { category: catFolderName });
+                          setCollapsedSkillGroups((prev) => ({
+                            ...prev,
+                            [entry.key]: false
+                          }));
+                        } else if (entry.key === 'custom') {
+                          updateSkill(targetSkillId, { category: undefined });
+                        }
+                      }
+                      html5DragSkillIdRef.current = null;
                     }}
                   >
                     <button
@@ -11218,6 +11259,7 @@ function SkillsPanel() {
                   e.preventDefault();
                   return;
                 }
+                html5DragSkillIdRef.current = skill.id;
                 const state = useDeckStore.getState();
                 const activeWs = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
                 const rootPath = (activeWs?.rootPath || '').trim();
@@ -11405,6 +11447,10 @@ function SkillsPanel() {
                   style={entry.depth ? { marginLeft: `${entry.depth * 16}px` } : undefined}
                   draggable={true}
                   onDragStart={handleDragStart}
+                  onDragEnd={() => {
+                    html5DragSkillIdRef.current = null;
+                    setDragOverFolderKey(null);
+                  }}
                   onDoubleClick={() => !skill.isSystem && handleStartEdit(skill)}
                   title={
                     isGrid
