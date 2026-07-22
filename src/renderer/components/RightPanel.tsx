@@ -11134,13 +11134,26 @@ function SkillsPanel() {
                       <span className="skill-group-chevron" aria-hidden>
                         {collapsed ? '▸' : '▾'}
                       </span>
-                      <span className="skill-group-label" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                      <span
+                        className="skill-group-label"
+                        title={isCat ? `Thư mục: ${catFolderName}` : entry.label}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          flex: 1,
+                          minWidth: 0,
+                          overflow: 'hidden'
+                        }}
+                      >
                         {isCat && (
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
                           </svg>
                         )}
-                        <span>{entry.label}</span>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>
+                          {entry.label}
+                        </span>
                       </span>
                       <span className="skill-group-count">{entry.count}</span>
                     </button>
