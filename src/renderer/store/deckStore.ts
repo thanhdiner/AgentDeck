@@ -4242,6 +4242,7 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
       allowedTools: skillDraft.allowedTools,
       fileScope: skillDraft.fileScope,
       version: skillDraft.version || '1.0.0',
+      category: skillDraft.category ? skillDraft.category.trim() : undefined,
       isSystem: false,
       updatedAt: timestamp
     };
