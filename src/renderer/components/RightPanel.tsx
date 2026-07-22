@@ -10806,17 +10806,6 @@ function SkillsPanel() {
               e.target.value = '';
             }}
           />
-          <input
-            ref={folderImportInputRef}
-            type="file"
-            multiple
-            accept=".md,.markdown,.json,.skill.json,text/markdown,application/json"
-            style={{ display: 'none' }}
-            onChange={(e) => {
-              handleImportFiles(e.target.files, targetImportFolderRef.current);
-              e.target.value = '';
-            }}
-          />
           <div className="skill-import-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
             <button
               type="button"
@@ -11760,7 +11749,9 @@ function SkillsPanel() {
               const cat = folderContextMenu.catFolderName;
               setFolderContextMenu(null);
               targetImportFolderRef.current = cat;
-              folderImportInputRef.current?.click();
+              setTimeout(() => {
+                folderImportInputRef.current?.click();
+              }, 50);
             }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -11832,6 +11823,18 @@ function SkillsPanel() {
           </button>
         </div>
       )}
+
+      <input
+        ref={folderImportInputRef}
+        type="file"
+        multiple
+        accept=".md,.markdown,.json,.skill.json,text/markdown,application/json"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          handleImportFiles(e.target.files, targetImportFolderRef.current);
+          e.target.value = '';
+        }}
+      />
     </div>
   );
 }
