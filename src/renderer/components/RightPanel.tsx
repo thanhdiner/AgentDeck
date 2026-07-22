@@ -8251,6 +8251,172 @@ function WorkspaceTemplateCard({
 /** Virtualize skills list when many — keeps scroll smooth at 100+ items */
 const SKILL_VIRTUAL_THRESHOLD = 40;
 
+type CategoryComboboxProps = {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  placeholder?: string;
+};
+
+function CategoryCombobox({
+  value,
+  onChange,
+  options,
+  placeholder = 'Select or type category...'
+}: CategoryComboboxProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  const filtered = useMemo(() => {
+    if (!value.trim()) return options;
+    const q = value.trim().toLowerCase();
+    return options.filter((opt) => opt.toLowerCase().includes(q));
+  }, [value, options]);
+
+  return (
+    <div ref={boxRef} style={{ position: 'relative', width: '100%' }}>
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            if (!isOpen) setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+          placeholder={placeholder}
+          spellCheck={false}
+          style={{
+            width: '100%',
+            paddingRight: '28px'
+          }}
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen((prev) => !prev);
+          }}
+          style={{
+            position: 'absolute',
+            right: '6px',
+            background: 'transparent',
+            border: 'none',
+            color: isOpen ? '#38bdf8' : '#71717a',
+            cursor: 'pointer',
+            padding: '4px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: '4px',
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = '#38bdf8')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = isOpen ? '#38bdf8' : '#71717a')}
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{
+              transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.15s ease'
+            }}
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+      </div>
+
+      {isOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 4px)',
+            left: 0,
+            right: 0,
+            zIndex: 200,
+            background: '#161618',
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+            borderRadius: '8px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+            maxHeight: '180px',
+            overflowY: 'auto',
+            padding: '4px'
+          }}
+        >
+          {filtered.length === 0 ? (
+            <div style={{ padding: '6px 8px', fontSize: '11px', color: '#71717a', fontStyle: 'italic' }}>
+              Press Enter or continue typing custom category "{value}"
+            </div>
+          ) : (
+            filtered.map((opt) => {
+              const isSelected = opt === value;
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onChange(opt);
+                    setIsOpen(false);
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    width: '100%',
+                    background: isSelected ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                    border: 'none',
+                    borderRadius: '5px',
+                    color: isSelected ? '#38bdf8' : '#e4e4e7',
+                    fontSize: '11px',
+                    padding: '6px 8px',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    transition: 'all 0.12s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSelected) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isSelected) e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  <span>{opt}</span>
+                  {isSelected && (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="M20 6 9 17l-5-5" />
+                    </svg>
+                  )}
+                </button>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SkillsPanel() {
   const skills = useDeckStore((state) => state.skills);
   const pinnedSkillIds = useDeckStore((state) => state.pinnedSkillIds || []);
@@ -9293,16 +9459,148 @@ function SkillsPanel() {
     if (s.category && s.category.trim()) {
       return s.category.trim();
     }
-    const name = (s.name || '').trim();
-    const match = name.match(/^([a-z0-9]+)[-_/]/i);
+    const name = (s.name || '').trim().toLowerCase();
+    const desc = (s.description || '').toLowerCase();
+    const full = `${name} ${desc}`;
+
+    // 1) Match numbered stage prefix in category or name (e.g., "1. Business", "2. UI UX Design")
+    const numberedMatch = (s.name || '').trim().match(/^(\d+[\.\-_]\s*[a-z0-9\s]+)/i);
+    if (numberedMatch) {
+      return numberedMatch[1].trim();
+    }
+
+    // 2) Smart auto-classification into the 10 SDLC workflow stages
+    if (
+      full.includes('security') ||
+      full.includes('audit') ||
+      full.includes('vulnerability') ||
+      full.includes('encryption') ||
+      full.includes('compliance')
+    ) {
+      return '6. Security Review';
+    }
+
+    if (
+      full.includes('qa') ||
+      full.includes('testing') ||
+      full.includes('unit-test') ||
+      full.includes('integration-test') ||
+      full.includes('e2e') ||
+      full.includes('test-case')
+    ) {
+      return '5. QA Testing';
+    }
+
+    if (
+      full.includes('devops') ||
+      full.includes('release') ||
+      full.includes('deploy') ||
+      full.includes('ci-cd') ||
+      full.includes('docker') ||
+      full.includes('kubernetes') ||
+      full.includes('pipeline') ||
+      full.includes('cloud')
+    ) {
+      return '7. DevOps Release';
+    }
+
+    if (
+      full.includes('analytics') ||
+      full.includes('telemetry') ||
+      full.includes('metrics') ||
+      full.includes('reporting') ||
+      full.includes('data-arch') ||
+      full.includes('etl') ||
+      full.includes('elt')
+    ) {
+      return '9. Data Analytics';
+    }
+
+    if (
+      full.includes('support') ||
+      full.includes('customer-support') ||
+      full.includes('operations') ||
+      full.includes('user-feedback') ||
+      full.includes('helpdesk') ||
+      full.includes('incident')
+    ) {
+      return '8. Operations Customer Support';
+    }
+
+    if (
+      full.includes('iteration') ||
+      full.includes('improvement') ||
+      full.includes('product-iteration') ||
+      full.includes('retrospective') ||
+      full.includes('cai-tien')
+    ) {
+      return '10. Product quay lại cải tiến';
+    }
+
+    if (
+      full.includes('product') ||
+      full.includes('business') ||
+      full.includes('requirement') ||
+      full.includes('spec') ||
+      full.includes('market') ||
+      full.includes('interview') ||
+      full.includes('customer-research') ||
+      full.includes('biz')
+    ) {
+      return '1. Business';
+    }
+
+    if (
+      full.includes('ui') ||
+      full.includes('ux') ||
+      full.includes('design-system') ||
+      full.includes('wireframe') ||
+      full.includes('figma') ||
+      full.includes('accessibility') ||
+      full.includes('layout') ||
+      full.includes('styling')
+    ) {
+      return '2. UI UX Design';
+    }
+
+    if (
+      full.includes('architecture') ||
+      full.includes('system-design') ||
+      full.includes('tech-design') ||
+      full.includes('schema') ||
+      full.includes('api-design') ||
+      full.includes('db-design')
+    ) {
+      return '3. Architecture Technical Design';
+    }
+
+    if (
+      full.includes('backend') ||
+      full.includes('frontend') ||
+      full.includes('development') ||
+      full.includes('code') ||
+      full.includes('refactor') ||
+      full.includes('api') ||
+      full.includes('auth') ||
+      full.includes('ai-agent') ||
+      full.includes('algorithm') ||
+      full.includes('implementation')
+    ) {
+      return '4. Development';
+    }
+
+    // Fallback to name prefix if available
+    const match = (s.name || '').trim().match(/^([a-z0-9]+)[-_/]/i);
     if (match) {
       const rawPrefix = match[1].toLowerCase();
       if (rawPrefix === 'api') return 'API';
       if (rawPrefix === 'ui' || rawPrefix === 'ux') return 'UI/UX';
       if (rawPrefix === 'ai') return 'AI';
       if (rawPrefix === 'db') return 'Database';
+      if (rawPrefix === 'qa') return 'QA';
       return rawPrefix.charAt(0).toUpperCase() + rawPrefix.slice(1);
     }
+
     return '';
   };
 
@@ -9344,10 +9642,13 @@ function SkillsPanel() {
       }
     }
 
-    const sortedCategories = Array.from(categoryMap.keys()).sort((a, b) => a.localeCompare(b));
+    const sortedCategories = Array.from(categoryMap.keys()).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+    );
     for (const cat of sortedCategories) {
       const items = categoryMap.get(cat)!;
-      pushGroup(`cat-${cat}`, `📁 ${cat}`, items);
+      const formattedLabel = '📁 ' + cat.replace(/[/\\]+/g, ' ➔ ');
+      pushGroup(`cat-${cat}`, formattedLabel, items);
     }
 
     if (uncategorized.length > 0) {
@@ -9439,6 +9740,30 @@ function SkillsPanel() {
   }, [skillListEntries, skillVirtual]);
 
   const [category, setCategory] = useState('');
+
+  const categorySuggestions = useMemo(() => {
+    const defaultStages = [
+      '1. Business',
+      '2. UI UX Design',
+      '3. Architecture Technical Design',
+      '4. Development',
+      '5. QA Testing',
+      '6. Security Review',
+      '7. DevOps Release',
+      '8. Operations Customer Support',
+      '9. Data Analytics',
+      '10. Product quay lại cải tiến'
+    ];
+    const existingCategories = new Set<string>(defaultStages);
+    for (const s of skills) {
+      if (s.category && s.category.trim()) {
+        existingCategories.add(s.category.trim());
+      }
+    }
+    return Array.from(existingCategories).sort((a, b) =>
+      a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+    );
+  }, [skills]);
 
   const handleCreate = () => {
     if (!name.trim() || !promptTemplate.trim()) {
@@ -9624,6 +9949,8 @@ function SkillsPanel() {
       if (!folderPath) return;
 
       const imported: Skill[] = [];
+      const rootFolderName = folderPath.replace(/[/\\]+$/, '').split(/[/\\]+/).pop() || '';
+      const isRootCategory = rootFolderName && !['skills', 'custom-skills', 'claude-skills'].includes(rootFolderName.toLowerCase());
 
       const scanDir = async (dir: string, baseRel: string = '') => {
         const res = await window.agentDeck.readDir(dir);
@@ -9649,7 +9976,8 @@ function SkillsPanel() {
               if (!raw) continue;
               const parsedList = parseSkillImport(raw);
               for (const item of parsedList) {
-                const skillCategory = item.category || baseRel || undefined;
+                const fallbackCategory = baseRel || (isRootCategory ? rootFolderName : undefined);
+                const skillCategory = item.category || fallbackCategory || undefined;
                 imported.push({
                   ...item,
                   id: `skill-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -9924,12 +10252,11 @@ function SkillsPanel() {
           </label>
           <label className="skill-field">
             <span className="skill-field-label">Category / Folder (optional)</span>
-            <input
-              type="text"
+            <CategoryCombobox
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              placeholder="e.g. Frontend, Backend, Database..."
-              spellCheck={false}
+              onChange={setCategory}
+              options={categorySuggestions}
+              placeholder="Chọn hoặc gõ danh mục (ví dụ: 1. Business, 4. Development...)"
             />
           </label>
           <label className="skill-field">
@@ -10061,12 +10388,11 @@ function SkillsPanel() {
           </label>
           <label className="skill-field">
             <span className="skill-field-label">Category / Folder (optional)</span>
-            <input
-              type="text"
+            <CategoryCombobox
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              placeholder="e.g. Frontend, Backend, Database..."
-              spellCheck={false}
+              onChange={setCategory}
+              options={categorySuggestions}
+              placeholder="Chọn hoặc gõ danh mục (ví dụ: 1. Business, 4. Development...)"
             />
           </label>
           <label className="skill-field">

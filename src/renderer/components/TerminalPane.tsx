@@ -195,6 +195,7 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
 
   /** Local restarting flag — covers the brief gap before processStatus hits spawning */
   const [isRestarting, setIsRestarting] = useState(false);
+  const [isOverlayDismissed, setIsOverlayDismissed] = useState(false);
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [isDragOver, setIsDragOver] = useState(false);
@@ -278,6 +279,7 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
     setHistoryIndex(-1);
     setTemporaryDraft('');
     setShowHistory(false);
+    setIsOverlayDismissed(false);
   }, [pane.id]);
 
   useEffect(() => {
@@ -2297,18 +2299,32 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
             </div>
           </div>
         ) : null}
-        {inactive && !isRestarting ? (
+        {inactive && !isRestarting && !isOverlayDismissed ? (
           <div className="terminal-inactive-overlay">
             <strong>{overlayTitle}</strong>
             <span>{overlayBody}</span>
-            <button
-              onClick={(event) => {
-                event.stopPropagation();
-                startPane();
-              }}
-            >
-              Start terminal
-            </button>
+            <div className="terminal-inactive-overlay-actions">
+              <button
+                type="button"
+                className="terminal-inactive-overlay-btn secondary"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setIsOverlayDismissed(true);
+                }}
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                className="terminal-inactive-overlay-btn primary"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  startPane();
+                }}
+              >
+                Start terminal
+              </button>
+            </div>
           </div>
         ) : null}
 
@@ -3285,6 +3301,32 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
                 <span className="terminal-composer-status-label">
                   {inactive ? 'Offline' : (isSubmitting ? 'Sending...' : (isAgentRunning ? 'Agent Busy' : 'Ready'))}
                 </span>
+                {inactive && isOverlayDismissed && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startPane();
+                    }}
+                    style={{
+                      background: 'rgba(56, 189, 248, 0.1)',
+                      border: '1px solid rgba(56, 189, 248, 0.25)',
+                      color: '#38bdf8',
+                      fontSize: '10px',
+                      fontWeight: 600,
+                      borderRadius: '4px',
+                      padding: '1px 6px',
+                      marginLeft: '6px',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(56, 189, 248, 0.25)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(56, 189, 248, 0.1)')}
+                    title="Start terminal process"
+                  >
+                    Start terminal
+                  </button>
+                )}
               </div>
 
               {paneWidth > 220 && !inactive && (

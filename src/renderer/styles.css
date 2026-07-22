@@ -1283,6 +1283,7 @@ button.danger {
   border-radius: var(--radius-sm, 4px);
   background: rgba(10, 10, 12, 0.92);
   text-align: center;
+  z-index: 10;
 }
 
 .terminal-inactive-overlay span {
@@ -1290,6 +1291,52 @@ button.danger {
   color: #94a3b8;
   font-size: 12px;
   line-height: 1.4;
+}
+
+.terminal-inactive-overlay-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.terminal-inactive-overlay-btn {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.terminal-inactive-overlay-btn.secondary {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #d4d4d8;
+}
+
+.terminal-inactive-overlay-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.terminal-inactive-overlay-btn.primary {
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.terminal-inactive-overlay-btn.primary:hover {
+  background: rgba(56, 189, 248, 0.22);
+  border-color: rgba(56, 189, 248, 0.45);
+  color: #7dd3fc;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
 }
 
 .command-palette-backdrop {
