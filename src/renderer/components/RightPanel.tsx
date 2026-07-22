@@ -10374,7 +10374,7 @@ function SkillsPanel() {
     return [parseSkillMd(text)];
   };
 
-  const handleImportFolder = async () => {
+  const handleImportFolder = async (targetCategory?: string) => {
     try {
       const folderPath = await window.agentDeck.selectWorkspaceFolder();
       if (!folderPath) return;
@@ -10408,7 +10408,7 @@ function SkillsPanel() {
               const parsedList = parseSkillImport(raw);
               for (const item of parsedList) {
                 const fallbackCategory = baseRel || (isRootCategory ? rootFolderName : undefined);
-                const skillCategory = item.category || fallbackCategory || undefined;
+                const skillCategory = targetCategory !== undefined ? targetCategory : (item.category || fallbackCategory || undefined);
                 imported.push({
                   ...item,
                   id: `skill-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -10435,7 +10435,15 @@ function SkillsPanel() {
         createSkill(sk);
       }
       setShowImport(false);
-      alert(`Successfully imported ${imported.length} skills from folder!`);
+      setSkillFilter('all');
+      setSkillSort('default');
+      if (targetCategory) {
+        setCollapsedSkillGroups((prev) => ({
+          ...prev,
+          [`cat-${targetCategory}`]: false
+        }));
+      }
+      alert(`Đã import thành công ${imported.length} skill vào thư mục!`);
     } catch (err) {
       alert(`Import folder failed: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -10818,7 +10826,7 @@ function SkillsPanel() {
               type="button"
               className="skill-import-file-btn"
               style={{ background: 'rgba(56, 189, 248, 0.15)', borderColor: '#38bdf8', color: '#bae6fd' }}
-              onClick={handleImportFolder}
+              onClick={() => handleImportFolder()}
             >
               Sync / Import Folder (Obsidian / Categories)…
             </button>
@@ -11728,6 +11736,37 @@ function SkillsPanel() {
             <span>Thêm Subfolder mới...</span>
           </button>
 
+          {/* Import Folder Option */}
+          <button
+            type="button"
+            className="context-menu-item"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              width: '100%',
+              padding: '6px 10px',
+              fontSize: '12px',
+              color: '#f4f4f5',
+              background: 'transparent',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              textAlign: 'left'
+            }}
+            onClick={() => {
+              const cat = folderContextMenu.catFolderName;
+              setFolderContextMenu(null);
+              handleImportFolder(cat);
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+            </svg>
+            <span>Import Thư mục Skill (Folder)...</span>
+          </button>
+
+          {/* Import File Option */}
           <button
             type="button"
             className="context-menu-item"
@@ -11755,11 +11794,12 @@ function SkillsPanel() {
             }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="12" y1="18" x2="12" y2="12" />
+              <line x1="9" y1="15" x2="15" y2="15" />
             </svg>
-            <span>Import Skill vào thư mục này...</span>
+            <span>Import File Skill (.md, .json)...</span>
           </button>
 
           <button
