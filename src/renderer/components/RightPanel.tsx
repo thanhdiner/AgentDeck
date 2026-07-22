@@ -9836,15 +9836,12 @@ function SkillsPanel() {
           <div data-delete-all-wrapper className="inline-confirm-delete-group" style={{ display: 'inline-flex', gap: '4px', alignItems: 'center' }}>
             <button
               type="button"
-              className="danger-btn confirming"
+              className="btn-confirm-ok"
               style={{
-                background: '#ef4444',
-                borderColor: '#dc2626',
-                color: '#ffffff',
-                fontWeight: 600,
-                padding: '3px 8px',
+                padding: '3px 10px',
                 borderRadius: '4px',
-                fontSize: '11px'
+                fontSize: '11px',
+                cursor: 'pointer'
               }}
               onClick={handleDeleteAllCustomSkills}
               title="Click OK to confirm delete all custom skills"
@@ -9853,11 +9850,9 @@ function SkillsPanel() {
             </button>
             <button
               type="button"
+              className="btn-confirm-cancel"
               style={{
                 padding: '3px 8px',
-                background: 'rgba(255, 255, 255, 0.1)',
-                borderColor: 'rgba(255, 255, 255, 0.2)',
-                color: '#a1a1aa',
                 borderRadius: '4px',
                 cursor: 'pointer',
                 fontSize: '11px'
@@ -10371,15 +10366,12 @@ function SkillsPanel() {
                     >
                       <button
                         type="button"
-                        className="danger skill-delete-btn is-confirming"
+                        className="btn-confirm-ok"
                         style={{
-                          background: '#ef4444',
-                          borderColor: '#dc2626',
-                          color: '#ffffff',
-                          fontWeight: 600,
                           padding: '2px 6px',
                           fontSize: '11px',
-                          borderRadius: '4px'
+                          borderRadius: '4px',
+                          cursor: 'pointer'
                         }}
                         title="Click OK to confirm delete"
                         onClick={(e) => {
@@ -10391,10 +10383,8 @@ function SkillsPanel() {
                       </button>
                       <button
                         type="button"
+                        className="btn-confirm-cancel"
                         style={{
-                          background: 'rgba(255, 255, 255, 0.1)',
-                          borderColor: 'rgba(255, 255, 255, 0.2)',
-                          color: '#a1a1aa',
                           padding: '2px 6px',
                           fontSize: '11px',
                           borderRadius: '4px',

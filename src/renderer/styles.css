@@ -6488,6 +6488,33 @@ body.is-skill-reordering * {
   color: #fecaca !important;
 }
 
+.btn-confirm-ok {
+  background: #ef4444 !important;
+  border: 1px solid #dc2626 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.4) !important;
+}
+
+.btn-confirm-ok:hover {
+  background: #dc2626 !important;
+  border-color: #b91c1c !important;
+  color: #ffffff !important;
+}
+
+.btn-confirm-cancel {
+  background: #27272a !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  color: #a1a1aa !important;
+  font-weight: 500 !important;
+}
+
+.btn-confirm-cancel:hover {
+  background: #3f3f46 !important;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+  color: #f4f4f5 !important;
+}
+
 .skill-export-feedback {
   color: #6ee7b7;
   font-weight: 600;
