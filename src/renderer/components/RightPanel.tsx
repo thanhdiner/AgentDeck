@@ -8799,7 +8799,8 @@ function SkillsPanel() {
           }
 
           const filename = skillFilename(skill);
-          const catDir = skill.category ? skill.category.trim().replace(/[/\\]+/g, '/').replace(/^\/|\/$/g, '') : '';
+          const resolvedCat = resolveSkillCategory(skill);
+          const catDir = resolvedCat ? resolvedCat.replace(/[/\\]+/g, '/').replace(/^\/|\/$/g, '') : '';
           const relPath = catDir ? `.claude/skills/${catDir}/${filename}` : `.claude/skills/${filename}`;
           const mdContent = skillToSkillMd(skill);
           void window.agentDeck.writeWorkspaceFile(rootPath, relPath, mdContent);
@@ -9265,6 +9266,23 @@ function SkillsPanel() {
     | { kind: 'header'; key: string; label: string; count: number }
     | { kind: 'skill'; key: string; skill: Skill };
 
+  const resolveSkillCategory = (s: Skill): string => {
+    if (s.category && s.category.trim()) {
+      return s.category.trim();
+    }
+    const name = (s.name || '').trim();
+    const match = name.match(/^([a-z0-9]+)[-_/]/i);
+    if (match) {
+      const rawPrefix = match[1].toLowerCase();
+      if (rawPrefix === 'api') return 'API';
+      if (rawPrefix === 'ui' || rawPrefix === 'ux') return 'UI/UX';
+      if (rawPrefix === 'ai') return 'AI';
+      if (rawPrefix === 'db') return 'Database';
+      return rawPrefix.charAt(0).toUpperCase() + rawPrefix.slice(1);
+    }
+    return '';
+  };
+
   const skillListEntries = useMemo((): SkillListEntry[] => {
     if (!showSkillGroups) {
       return filteredSkills.map((skill) => ({ kind: 'skill' as const, key: skill.id, skill }));
@@ -9289,12 +9307,12 @@ function SkillsPanel() {
     pushGroup('pinned', '📌 Pinned', pinned);
     pushGroup('system', '⚡ System', system);
 
-    // Group custom skills by category subfolder
+    // Group custom skills by category subfolder or smart name prefix
     const categoryMap = new Map<string, Skill[]>();
     const uncategorized: Skill[] = [];
 
     for (const s of custom) {
-      const cat = s.category?.trim();
+      const cat = resolveSkillCategory(s);
       if (cat) {
         if (!categoryMap.has(cat)) categoryMap.set(cat, []);
         categoryMap.get(cat)!.push(s);
@@ -9580,10 +9598,10 @@ function SkillsPanel() {
       const imported: Skill[] = [];
 
       const scanDir = async (dir: string, baseRel: string = '') => {
-        const res = await window.agentDeck.readDirectory(dir);
+        const res = await window.agentDeck.readDir(dir);
         const entries =
-          res && typeof res === 'object' && 'data' in res && Array.isArray((res as any).data)
-            ? (res as any).data
+          res && typeof res === 'object' && 'data' in res && Array.isArray(res.data)
+            ? res.data
             : Array.isArray(res)
               ? res
               : [];
@@ -10143,7 +10161,8 @@ function SkillsPanel() {
                 const rootPath = (activeWs?.rootPath || '').trim();
 
                 const filename = skillFilename(skill);
-                const catDir = skill.category ? skill.category.trim().replace(/[/\\]+/g, '/').replace(/^\/|\/$/g, '') : '';
+                const resolvedCat = resolveSkillCategory(skill);
+                const catDir = resolvedCat ? resolvedCat.replace(/[/\\]+/g, '/').replace(/^\/|\/$/g, '') : '';
                 const isWin = navigator.userAgent.includes('Windows') || rootPath.includes('\\');
                 const sep = isWin ? '\\' : '/';
                 const normRoot = rootPath ? rootPath.replace(/[/\\]+/g, sep).replace(/[/\\]$/, '') : '';
