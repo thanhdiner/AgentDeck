@@ -8274,6 +8274,7 @@ function SkillsPanel() {
   const [editingSkillId, setEditingSkillId] = useState<string | null>(null);
   /** Inline confirm delete — second click on same skill id executes */
   const [confirmDeleteSkillId, setConfirmDeleteSkillId] = useState<string | null>(null);
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
   /** Trello-style: card stays in list, reorders live under cursor (pointer-based, not HTML5) */
   const [draggingSkillId, setDraggingSkillId] = useState<string | null>(null);
   const dragOverRaf = useRef(0);
@@ -9512,14 +9513,19 @@ function SkillsPanel() {
   };
 
   useEffect(() => {
-    if (!confirmDeleteSkillId) return;
+    if (!confirmDeleteSkillId && !confirmDeleteAll) return;
     const onPointerDown = (e: MouseEvent) => {
       const t = e.target as HTMLElement | null;
-      if (t?.closest?.(`[data-skill-delete="${confirmDeleteSkillId}"]`)) return;
+      if (confirmDeleteSkillId && t?.closest?.(`[data-skill-delete="${confirmDeleteSkillId}"]`)) return;
+      if (confirmDeleteAll && t?.closest?.('[data-delete-all-wrapper]')) return;
       setConfirmDeleteSkillId(null);
+      setConfirmDeleteAll(false);
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setConfirmDeleteSkillId(null);
+      if (e.key === 'Escape') {
+        setConfirmDeleteSkillId(null);
+        setConfirmDeleteAll(false);
+      }
     };
     document.addEventListener('mousedown', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
@@ -9527,7 +9533,7 @@ function SkillsPanel() {
       document.removeEventListener('mousedown', onPointerDown);
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, [confirmDeleteSkillId]);
+  }, [confirmDeleteSkillId, confirmDeleteAll]);
 
   const handleDeleteSkillClick = (skillId: string) => {
     if (confirmDeleteSkillId === skillId) {
@@ -9785,9 +9791,13 @@ function SkillsPanel() {
       window.alert('No custom skills to delete.');
       return;
     }
-    if (window.confirm(`Are you sure you want to delete all ${customCount} custom skills? This cannot be undone.`)) {
+    if (confirmDeleteAll) {
       useDeckStore.getState().deleteAllCustomSkills();
+      setConfirmDeleteAll(false);
+      return;
     }
+    setConfirmDeleteAll(true);
+    setConfirmDeleteSkillId(null);
   };
 
   return (
@@ -9813,14 +9823,52 @@ function SkillsPanel() {
         <button onClick={() => setShowImport(!showImport)}>
           {showImport ? 'Cancel Import' : 'Import Skill'}
         </button>
-        <button
-          type="button"
-          style={{ background: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.4)', color: '#fca5a5' }}
-          onClick={handleDeleteAllCustomSkills}
-          title="Delete all custom skills"
-        >
-          Delete All
-        </button>
+        {!confirmDeleteAll ? (
+          <button
+            type="button"
+            style={{ background: 'rgba(239, 68, 68, 0.15)', borderColor: 'rgba(239, 68, 68, 0.4)', color: '#fca5a5' }}
+            onClick={handleDeleteAllCustomSkills}
+            title="Delete all custom skills"
+          >
+            Delete All
+          </button>
+        ) : (
+          <div data-delete-all-wrapper className="inline-confirm-delete-group" style={{ display: 'inline-flex', gap: '4px', alignItems: 'center' }}>
+            <button
+              type="button"
+              className="danger-btn confirming"
+              style={{
+                background: '#ef4444',
+                borderColor: '#dc2626',
+                color: '#ffffff',
+                fontWeight: 600,
+                padding: '4px 10px',
+                borderRadius: '4px',
+                fontSize: '12px'
+              }}
+              onClick={handleDeleteAllCustomSkills}
+              title="Click again to confirm delete all custom skills"
+            >
+              Confirm Delete All?
+            </button>
+            <button
+              type="button"
+              style={{
+                padding: '4px 8px',
+                background: 'rgba(255, 255, 255, 0.1)',
+                borderColor: 'rgba(255, 255, 255, 0.2)',
+                color: '#e4e4e7',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px'
+              }}
+              onClick={() => setConfirmDeleteAll(false)}
+              title="Cancel"
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </div>
 
       {isCreating && (
@@ -10329,6 +10377,19 @@ function SkillsPanel() {
                         ? 'Del'
                         : 'Delete'}
                   </button>
+                  {confirmDeleteSkillId === skill.id && (
+                    <button
+                      type="button"
+                      style={{ padding: '2px 6px', fontSize: '11px', color: '#a1a1aa', cursor: 'pointer' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmDeleteSkillId(null);
+                      }}
+                      title="Cancel delete"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
               );
 
