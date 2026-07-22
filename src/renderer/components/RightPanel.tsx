@@ -8434,8 +8434,33 @@ function SkillsPanel() {
   >('default');
   /** List = full detail · Grid = compact tiles */
   const [skillLayout, setSkillLayout] = useState<'list' | 'grid'>('list');
-  /** Collapse state for section headers (Pinned / System / Custom) */
-  const [collapsedSkillGroups, setCollapsedSkillGroups] = useState<Record<string, boolean>>({});
+  /** Collapse state for section headers (Pinned / System / Custom / Categories) - saved to localStorage */
+  const [collapsedSkillGroups, setCollapsedSkillGroups] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = localStorage.getItem('agentdeck_collapsed_skill_groups');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('agentdeck_collapsed_skill_groups', JSON.stringify(collapsedSkillGroups));
+    } catch {
+      // Ignore storage errors
+    }
+  }, [collapsedSkillGroups]);
+
+  const isGroupCollapsed = useCallback(
+    (key: string): boolean => {
+      if (collapsedSkillGroups[key] !== undefined) {
+        return Boolean(collapsedSkillGroups[key]);
+      }
+      return true; // Default to collapsed
+    },
+    [collapsedSkillGroups]
+  );
   const [isCreating, setIsCreating] = useState(false);
   const [editingSkillId, setEditingSkillId] = useState<string | null>(null);
   /** Inline confirm delete — second click on same skill id executes */
@@ -9620,7 +9645,7 @@ function SkillsPanel() {
     const pushGroup = (key: string, label: string, items: Skill[]) => {
       if (items.length === 0) return;
       entries.push({ kind: 'header', key, label, count: items.length });
-      if (collapsedSkillGroups[key]) return;
+      if (isGroupCollapsed(key)) return;
       for (const skill of items) {
         entries.push({ kind: 'skill', key: skill.id, skill });
       }
@@ -9657,7 +9682,7 @@ function SkillsPanel() {
     }
 
     return entries;
-  }, [showSkillGroups, filteredSkills, pinnedSet, collapsedSkillGroups]);
+  }, [showSkillGroups, filteredSkills, pinnedSet, collapsedSkillGroups, isGroupCollapsed]);
 
   // ── Virtual window (only when many skills; disabled while reordering for hit-tests) ──
   const [skillScrollTop, setSkillScrollTop] = useState(0);
@@ -10526,7 +10551,7 @@ function SkillsPanel() {
             ) : null}
             {visibleSkillEntries.map((entry) => {
               if (entry.kind === 'header') {
-                const collapsed = Boolean(collapsedSkillGroups[entry.key]);
+                const collapsed = isGroupCollapsed(entry.key);
                 return (
                   <button
                     key={entry.key}
@@ -10536,7 +10561,7 @@ function SkillsPanel() {
                     onClick={() =>
                       setCollapsedSkillGroups((prev) => ({
                         ...prev,
-                        [entry.key]: !prev[entry.key]
+                        [entry.key]: !collapsed
                       }))
                     }
                   >
