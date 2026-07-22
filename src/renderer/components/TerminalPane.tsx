@@ -2172,24 +2172,13 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
 
         const state = useDeckStore.getState();
         const hasAgentData = e.dataTransfer.types.includes('text/agent-profile-id');
-        const workspace = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
-        const assignedAgentId = workspace?.paneAgentAssignments?.[pane.id];
         const isProcessRunning = pane.processStatus === 'running' || pane.processStatus === 'ready';
-        const titleLower = (pane.title || '').toLowerCase();
-        const isAgentTitle =
-          titleLower.includes('codex') ||
-          titleLower.includes('claude') ||
-          titleLower.includes('grok') ||
-          titleLower.includes('antigravity') ||
-          titleLower.includes('agy') ||
-          titleLower.includes('opencode');
-
         const activeRun = state.agentRuns.find((r) => r.terminalSessionId === pane.id && r.status === 'running');
-        const isBusy = Boolean(activeTask || activeRun || (isProcessRunning && (assignedAgentId || isAgentTitle)));
+        const isBusy = Boolean(activeTask || activeRun || isProcessRunning);
 
         if (hasAgentData) {
           if (isBusy) {
-            paneRef.current?.setAttribute('data-skill-drop-label', `⚠️ Terminal ${pane.title} đang chạy Agent CLI — Không thể thả`);
+            paneRef.current?.setAttribute('data-skill-drop-label', `⚠️ Terminal '${pane.title}' đang hoạt động — Không thể thả`);
           } else {
             paneRef.current?.setAttribute('data-skill-drop-label', 'Drop Agent to run in this terminal');
           }
@@ -2216,23 +2205,12 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
           const agent = state.agentProfiles.find((a) => a.id === agentProfileId);
           if (!agent) return;
 
-          const workspace = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
-          const assignedAgentId = workspace?.paneAgentAssignments?.[pane.id];
           const isProcessRunning = pane.processStatus === 'running' || pane.processStatus === 'ready';
-          const titleLower = (pane.title || '').toLowerCase();
-          const isAgentTitle =
-            titleLower.includes('codex') ||
-            titleLower.includes('claude') ||
-            titleLower.includes('grok') ||
-            titleLower.includes('antigravity') ||
-            titleLower.includes('agy') ||
-            titleLower.includes('opencode');
-
           const activeRun = state.agentRuns.find((r) => r.terminalSessionId === pane.id && r.status === 'running');
-          const isBusy = Boolean(activeTask || activeRun || (isProcessRunning && (assignedAgentId || isAgentTitle)));
+          const isBusy = Boolean(activeTask || activeRun || isProcessRunning);
 
           if (isBusy) {
-            window.alert(`Terminal '${pane.title}' đang chạy Agent CLI (${agent.name}). Vui lòng thả vào Terminal đang rảnh hoặc mở Terminal mới!`);
+            window.alert(`Terminal '${pane.title}' đang hoạt động (process running). Vui lòng mở Terminal mới hoặc thả vào Terminal đang dừng!`);
             return;
           }
 
