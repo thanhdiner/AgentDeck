@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, webContents, clipboard, nativeImage } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, shell, webContents, clipboard, nativeImage } from 'electron';
 import path from 'node:path';
 import type {
   AppSetting,
@@ -146,6 +146,8 @@ async function ipcResult<T>(handler: () => Promise<T> | T): Promise<IpcResult<T>
 }
 
 function createWindow() {
+  Menu.setApplicationMenu(null);
+
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -153,6 +155,7 @@ function createWindow() {
     minHeight: 640,
     title: 'AgentDeck',
     backgroundColor: '#101010',
+    autoHideMenuBar: true,
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,
@@ -161,6 +164,8 @@ function createWindow() {
       sandbox: false
     }
   });
+
+  mainWindow.setMenu(null);
 
   if (isDev && process.env.ELECTRON_RENDERER_URL) {
     void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);

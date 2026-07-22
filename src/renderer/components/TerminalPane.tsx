@@ -1746,6 +1746,9 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
     terminal.open(host);
 
     terminal.attachCustomKeyEventHandler((event) => {
+      if (event.key === 'Alt') {
+        return false;
+      }
       if (event.type === 'keydown' && (event.ctrlKey || event.metaKey)) {
         const key = event.key.toLowerCase();
         
