@@ -3819,7 +3819,52 @@ function AgentsPanel() {
   const setPaneAgentAssignments = useDeckStore((state) => state.setPaneAgentAssignments);
   const moveAgentProfile = useDeckStore((state) => state.moveAgentProfile);
 
+  const agentsListRef = useRef<HTMLDivElement | null>(null);
+  const agentFlipRectsRef = useRef<Map<string, DOMRect>>(new Map());
+
+  const captureAgentFlipRects = useCallback(() => {
+    const list = agentsListRef.current;
+    if (!list) return;
+    const map = new Map<string, DOMRect>();
+    list.querySelectorAll('[data-agent-card-id]').forEach((node) => {
+      const id = node.getAttribute('data-agent-card-id');
+      if (id) map.set(id, node.getBoundingClientRect());
+    });
+    agentFlipRectsRef.current = map;
+  }, []);
+
   const [draggingAgentId, setDraggingAgentId] = useState<string | null>(null);
+
+  useLayoutEffect(() => {
+    if (!draggingAgentId) {
+      agentFlipRectsRef.current.clear();
+      return;
+    }
+    const list = agentsListRef.current;
+    if (!list) return;
+    const prev = agentFlipRectsRef.current;
+    if (prev.size === 0) return;
+
+    list.querySelectorAll('[data-agent-card-id]').forEach((node) => {
+      const el = node as HTMLElement;
+      const id = el.getAttribute('data-agent-card-id');
+      if (!id || id === draggingAgentId) return;
+      const oldRect = prev.get(id);
+      if (!oldRect) return;
+      const newRect = el.getBoundingClientRect();
+      const dy = oldRect.top - newRect.top;
+      if (Math.abs(dy) < 0.5) return;
+      el.animate(
+        [
+          { transform: `translate(0, ${dy}px)` },
+          { transform: 'translate(0, 0)' }
+        ],
+        { duration: 180, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)', fill: 'both' }
+      );
+    });
+    prev.clear();
+  }, [draggingAgentId, agentProfiles]);
+
   const agentDropHoverRef = useRef<HTMLElement | null>(null);
   const agentPointerReorderRef = useRef<{
     agentId: string;
@@ -3900,6 +3945,7 @@ function AgentsPanel() {
           const targetId = hover.getAttribute('data-agent-card-id');
           if (targetId && targetId !== agentId) {
             const place = hover.classList.contains('skill-drop-target-before') ? 'before' : 'after';
+            captureAgentFlipRects();
             moveAgentProfile(agentId, targetId, place);
           }
         }
@@ -3950,6 +3996,7 @@ function AgentsPanel() {
     const place = card.classList.contains('skill-drop-target-before') ? 'before' : 'after';
     card.classList.remove('skill-drop-target-before', 'skill-drop-target-after');
     if (draggingAgentId && draggingAgentId !== targetId) {
+      captureAgentFlipRects();
       moveAgentProfile(draggingAgentId, targetId, place);
     }
     setDraggingAgentId(null);
@@ -4272,7 +4319,7 @@ function AgentsPanel() {
           </button>
         </div>
 
-        <div className="agents-list">
+        <div ref={agentsListRef} className="agents-list">
           {agentProfiles.map((agent) => (
             <AgentProfileCard
               agent={agent}

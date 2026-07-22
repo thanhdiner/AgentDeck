@@ -6355,6 +6355,63 @@ body.is-skill-reordering * {
   opacity: 0.9;
 }
 
+/* Drag handle & FLIP reordering animations for Agent Profile Cards */
+.agent-drag-handle {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin: 0 4px 0 0;
+  padding: 0 !important;
+  border-radius: 4px !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  color: #71717a !important;
+  cursor: grab !important;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: all 0.15s ease;
+}
+
+.agent-drag-handle:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: #38bdf8 !important;
+}
+
+.agent-drag-handle:active,
+.agent-profile-card.is-dragging .agent-drag-handle {
+  cursor: grabbing !important;
+  background: rgba(56, 189, 248, 0.15) !important;
+  border-color: rgba(56, 189, 248, 0.4) !important;
+  color: #38bdf8 !important;
+}
+
+.agent-profile-card {
+  transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.15s ease, opacity 0.15s ease, border-color 0.15s ease;
+}
+
+.agent-profile-card.is-dragging {
+  opacity: 0.45 !important;
+  transform: scale(0.985);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5), 0 0 0 1.5px rgba(56, 189, 248, 0.6) !important;
+  border-color: rgba(56, 189, 248, 0.5) !important;
+  z-index: 20;
+}
+
+.agent-profile-card.skill-drop-target-before {
+  box-shadow: 0 -3px 0 0 #38bdf8, 0 0 12px rgba(56, 189, 248, 0.35) !important;
+  border-top-color: #38bdf8 !important;
+}
+
+.agent-profile-card.skill-drop-target-after {
+  box-shadow: 0 3px 0 0 #38bdf8, 0 0 12px rgba(56, 189, 248, 0.35) !important;
+  border-bottom-color: #38bdf8 !important;
+}
+
 .skill-title-block {
   display: flex;
   flex-direction: column;
