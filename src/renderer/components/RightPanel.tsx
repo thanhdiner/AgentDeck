@@ -9841,15 +9841,15 @@ function SkillsPanel() {
                 background: '#ef4444',
                 borderColor: '#dc2626',
                 color: '#ffffff',
-                fontWeight: 600,
+                fontWeight: 700,
                 padding: '4px 10px',
                 borderRadius: '4px',
-                fontSize: '12px'
+                fontSize: '13px'
               }}
               onClick={handleDeleteAllCustomSkills}
-              title="Click again to confirm delete all custom skills"
+              title="Click ✓ to confirm delete all custom skills"
             >
-              Confirm Delete All?
+              ✓
             </button>
             <button
               type="button"
@@ -9860,7 +9860,7 @@ function SkillsPanel() {
                 color: '#e4e4e7',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                fontSize: '12px'
+                fontSize: '13px'
               }}
               onClick={() => setConfirmDeleteAll(false)}
               title="Cancel"
@@ -10370,9 +10370,7 @@ function SkillsPanel() {
                     }}
                   >
                     {confirmDeleteSkillId === skill.id
-                      ? isGrid
-                        ? 'OK?'
-                        : 'Confirm?'
+                      ? '✓'
                       : isGrid
                         ? 'Del'
                         : 'Delete'}
