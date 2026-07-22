@@ -2224,7 +2224,8 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/^-+|-+$/g, '');
         const filename = `${slug}.SKILL.md`;
-        const relPath = `.claude/skills/${filename}`;
+        const catDir = skill.category ? skill.category.trim().replace(/[/\\]+/g, '/').replace(/^\/|\/$/g, '') : '';
+        const relPath = catDir ? `.claude/skills/${catDir}/${filename}` : `.claude/skills/${filename}`;
 
         const desc = (skill.description || skill.name).trim() || skill.name;
         const descLines = desc.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
@@ -2236,6 +2237,7 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
         if (skill.version?.trim()) extra.push(`version: ${JSON.stringify(skill.version.trim())}`);
         if (skill.allowedTools?.trim()) extra.push(`allowed-tools: ${JSON.stringify(skill.allowedTools.trim())}`);
         if (skill.fileScope?.trim()) extra.push(`file-scope: ${JSON.stringify(skill.fileScope.trim())}`);
+        if (catDir) extra.push(`category: ${JSON.stringify(catDir)}`);
         extra.push(`metadata: ${JSON.stringify({ displayName: skill.name, source: 'agentdeck' })}`);
         const body = (skill.promptTemplate || '').trim() || `# ${skill.name}\n\n(No instructions yet.)`;
         const mdContent = [
@@ -2254,7 +2256,8 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
         const isWin = navigator.userAgent.includes('Windows') || rootPath.includes('\\');
         const sep = isWin ? '\\' : '/';
         const normRoot = rootPath.replace(/[/\\]+/g, sep).replace(/[/\\]$/, '');
-        const fullPath = `${normRoot}${sep}.claude${sep}skills${sep}${filename}`;
+        const catWinDir = catDir ? `${sep}${catDir.replace(/\//g, sep)}` : '';
+        const fullPath = `${normRoot}${sep}.claude${sep}skills${catWinDir}${sep}${filename}`;
 
         state.selectPane(pane.id);
         const payload = `\x1b[200~"${fullPath}"\x1b[201~`;

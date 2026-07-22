@@ -208,6 +208,7 @@ export type Skill = {
   version: string;
   isSystem: boolean;
   updatedAt: number;
+  category?: string;
 };
 
 export type DeckTask = {

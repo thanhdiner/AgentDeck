@@ -8799,14 +8799,16 @@ function SkillsPanel() {
           }
 
           const filename = skillFilename(skill);
-          const relPath = `.claude/skills/${filename}`;
+          const catDir = skill.category ? skill.category.trim().replace(/[/\\]+/g, '/').replace(/^\/|\/$/g, '') : '';
+          const relPath = catDir ? `.claude/skills/${catDir}/${filename}` : `.claude/skills/${filename}`;
           const mdContent = skillToSkillMd(skill);
           void window.agentDeck.writeWorkspaceFile(rootPath, relPath, mdContent);
 
           const isWin = navigator.userAgent.includes('Windows') || rootPath.includes('\\');
           const sep = isWin ? '\\' : '/';
           const normRoot = rootPath.replace(/[/\\]+/g, sep).replace(/[/\\]$/, '');
-          const fullPath = `${normRoot}${sep}.claude${sep}skills${sep}${filename}`;
+          const catWinDir = catDir ? `${sep}${catDir.replace(/\//g, sep)}` : '';
+          const fullPath = `${normRoot}${sep}.claude${sep}skills${catWinDir}${sep}${filename}`;
 
           state.selectPane(paneId);
           const payload = `\x1b[200~"${fullPath}"\x1b[201~`;
@@ -9045,6 +9047,7 @@ function SkillsPanel() {
     if (skill.version?.trim()) extra.push(`version: ${JSON.stringify(skill.version.trim())}`);
     if (skill.allowedTools?.trim()) extra.push(`allowed-tools: ${JSON.stringify(skill.allowedTools.trim())}`);
     if (skill.fileScope?.trim()) extra.push(`file-scope: ${JSON.stringify(skill.fileScope.trim())}`);
+    if (skill.category?.trim()) extra.push(`category: ${JSON.stringify(skill.category.trim())}`);
     // Keep human title for round-trip into AgentDeck UI
     extra.push(`metadata: ${JSON.stringify({ displayName: skill.name, source: 'agentdeck' })}`);
 
@@ -9146,7 +9149,8 @@ function SkillsPanel() {
         promptTemplate,
         allowedTools: (fm['allowed-tools'] || fm.allowedTools || fm.tools || '').trim(),
         fileScope: (fm['file-scope'] || fm.fileScope || fm.scope || '').trim(),
-        version: (fm.version || '1.0.0').trim()
+        version: (fm.version || '1.0.0').trim(),
+        category: (fm.category || fm.group || fm.folder || '').trim() || undefined
       };
     }
 
@@ -9282,9 +9286,34 @@ function SkillsPanel() {
         entries.push({ kind: 'skill', key: skill.id, skill });
       }
     };
-    pushGroup('pinned', 'Pinned', pinned);
-    pushGroup('system', 'System', system);
-    pushGroup('custom', 'Custom', custom);
+    pushGroup('pinned', '📌 Pinned', pinned);
+    pushGroup('system', '⚡ System', system);
+
+    // Group custom skills by category subfolder
+    const categoryMap = new Map<string, Skill[]>();
+    const uncategorized: Skill[] = [];
+
+    for (const s of custom) {
+      const cat = s.category?.trim();
+      if (cat) {
+        if (!categoryMap.has(cat)) categoryMap.set(cat, []);
+        categoryMap.get(cat)!.push(s);
+      } else {
+        uncategorized.push(s);
+      }
+    }
+
+    const sortedCategories = Array.from(categoryMap.keys()).sort((a, b) => a.localeCompare(b));
+    for (const cat of sortedCategories) {
+      const items = categoryMap.get(cat)!;
+      pushGroup(`cat-${cat}`, `📁 ${cat}`, items);
+    }
+
+    if (uncategorized.length > 0) {
+      const label = categoryMap.size > 0 ? '📁 General' : 'Custom';
+      pushGroup('custom', label, uncategorized);
+    }
+
     return entries;
   }, [showSkillGroups, filteredSkills, pinnedSet, collapsedSkillGroups]);
 
@@ -9368,6 +9397,8 @@ function SkillsPanel() {
     return skillListEntries.slice(skillVirtual.start, skillVirtual.end);
   }, [skillListEntries, skillVirtual]);
 
+  const [category, setCategory] = useState('');
+
   const handleCreate = () => {
     if (!name.trim() || !promptTemplate.trim()) {
       alert('Name and Prompt Template are required.');
@@ -9379,7 +9410,8 @@ function SkillsPanel() {
       promptTemplate,
       allowedTools,
       fileScope,
-      version
+      version,
+      category: category.trim() || undefined
     });
     setName('');
     setDescription('');
@@ -9387,6 +9419,7 @@ function SkillsPanel() {
     setAllowedTools('');
     setFileScope('');
     setVersion('1.0.0');
+    setCategory('');
     setIsCreating(false);
   };
 
@@ -9399,6 +9432,7 @@ function SkillsPanel() {
     setAllowedTools(skill.allowedTools);
     setFileScope(skill.fileScope);
     setVersion(skill.version);
+    setCategory(skill.category || '');
   };
 
   const handleSaveEdit = () => {
@@ -9413,7 +9447,8 @@ function SkillsPanel() {
       promptTemplate,
       allowedTools,
       fileScope,
-      version
+      version,
+      category: category.trim() || undefined
     });
     setEditingSkillId(null);
     setName('');
@@ -9422,6 +9457,7 @@ function SkillsPanel() {
     setAllowedTools('');
     setFileScope('');
     setVersion('1.0.0');
+    setCategory('');
   };
 
   const handleCancelEdit = () => {
@@ -9432,6 +9468,7 @@ function SkillsPanel() {
     setAllowedTools('');
     setFileScope('');
     setVersion('1.0.0');
+    setCategory('');
   };
 
   useEffect(() => {
@@ -9500,7 +9537,11 @@ function SkillsPanel() {
         (typeof body['file-scope'] === 'string' && body['file-scope']) ||
         (typeof body.scope === 'string' && body.scope) ||
         '',
-      version: typeof body.version === 'string' && body.version.trim() ? body.version.trim() : '1.0.0'
+      version: typeof body.version === 'string' && body.version.trim() ? body.version.trim() : '1.0.0',
+      category:
+        (typeof body.category === 'string' && body.category.trim()) ||
+        (typeof body.group === 'string' && body.group.trim()) ||
+        undefined
     };
   };
 
@@ -9529,6 +9570,70 @@ function SkillsPanel() {
     }
 
     return [parseSkillMd(text)];
+  };
+
+  const handleImportFolder = async () => {
+    try {
+      const folderPath = await window.agentDeck.selectWorkspaceFolder();
+      if (!folderPath) return;
+
+      const imported: Skill[] = [];
+
+      const scanDir = async (dir: string, baseRel: string = '') => {
+        const res = await window.agentDeck.readDirectory(dir);
+        const entries =
+          res && typeof res === 'object' && 'data' in res && Array.isArray((res as any).data)
+            ? (res as any).data
+            : Array.isArray(res)
+              ? res
+              : [];
+        for (const entry of entries) {
+          if (entry.isDirectory) {
+            const subRel = baseRel ? `${baseRel}/${entry.name}` : entry.name;
+            await scanDir(entry.path, subRel);
+          } else if (entry.name.endsWith('.md') || entry.name.endsWith('.json')) {
+            try {
+              const fileRes = await window.agentDeck.readWorkspaceFile(dir, entry.name);
+              const raw =
+                fileRes && typeof fileRes === 'object' && 'data' in fileRes && typeof (fileRes as any).data === 'string'
+                  ? (fileRes as any).data
+                  : typeof fileRes === 'string'
+                    ? fileRes
+                    : '';
+              if (!raw) continue;
+              const parsedList = parseSkillImport(raw);
+              for (const item of parsedList) {
+                const skillCategory = item.category || baseRel || undefined;
+                imported.push({
+                  ...item,
+                  id: `skill-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                  category: skillCategory,
+                  isSystem: false,
+                  updatedAt: Date.now()
+                });
+              }
+            } catch {
+              // Ignore unparseable files
+            }
+          }
+        }
+      };
+
+      await scanDir(folderPath);
+
+      if (imported.length === 0) {
+        alert('No valid SKILL.md or JSON files found in selected folder.');
+        return;
+      }
+
+      for (const sk of imported) {
+        createSkill(sk);
+      }
+      setShowImport(false);
+      alert(`Successfully imported ${imported.length} skills from folder!`);
+    } catch (err) {
+      alert(`Import folder failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
   };
 
   /** Export as standard SKILL.md (agent-native). Optional clipboard copy of same text. */
@@ -9716,6 +9821,16 @@ function SkillsPanel() {
             />
           </label>
           <label className="skill-field">
+            <span className="skill-field-label">Category / Folder (optional)</span>
+            <input
+              type="text"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder="e.g. Frontend, Backend, Database..."
+              spellCheck={false}
+            />
+          </label>
+          <label className="skill-field">
             <span className="skill-field-label">File scope (optional, AgentDeck)</span>
             <input
               type="text"
@@ -9753,13 +9868,23 @@ function SkillsPanel() {
               e.target.value = '';
             }}
           />
-          <button
-            type="button"
-            className="skill-import-file-btn"
-            onClick={() => importFileRef.current?.click()}
-          >
-            Choose SKILL.md or JSON…
-          </button>
+          <div className="skill-import-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+            <button
+              type="button"
+              className="skill-import-file-btn"
+              onClick={() => importFileRef.current?.click()}
+            >
+              Choose SKILL.md or JSON…
+            </button>
+            <button
+              type="button"
+              className="skill-import-file-btn"
+              style={{ background: 'rgba(56, 189, 248, 0.15)', borderColor: '#38bdf8', color: '#bae6fd' }}
+              onClick={handleImportFolder}
+            >
+              📁 Sync / Import Folder (Obsidian / Categories)…
+            </button>
+          </div>
           <label className="skill-field">
             <span className="skill-field-label">Or paste SKILL.md / JSON</span>
             <textarea
@@ -9829,6 +9954,16 @@ function SkillsPanel() {
               value={allowedTools}
               onChange={(e) => setAllowedTools(e.target.value)}
               placeholder="Allowed tools"
+              spellCheck={false}
+            />
+          </label>
+          <label className="skill-field">
+            <span className="skill-field-label">Category / Folder (optional)</span>
+            <input
+              type="text"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder="e.g. Frontend, Backend, Database..."
               spellCheck={false}
             />
           </label>
@@ -10008,10 +10143,12 @@ function SkillsPanel() {
                 const rootPath = (activeWs?.rootPath || '').trim();
 
                 const filename = skillFilename(skill);
+                const catDir = skill.category ? skill.category.trim().replace(/[/\\]+/g, '/').replace(/^\/|\/$/g, '') : '';
                 const isWin = navigator.userAgent.includes('Windows') || rootPath.includes('\\');
                 const sep = isWin ? '\\' : '/';
                 const normRoot = rootPath ? rootPath.replace(/[/\\]+/g, sep).replace(/[/\\]$/, '') : '';
-                const fullPath = normRoot ? `${normRoot}${sep}.claude${sep}skills${sep}${filename}` : filename;
+                const catWinDir = catDir ? `${sep}${catDir.replace(/\//g, sep)}` : '';
+                const fullPath = normRoot ? `${normRoot}${sep}.claude${sep}skills${catWinDir}${sep}${filename}` : filename;
                 const payload = `\x1b[200~"${fullPath}"\x1b[201~`;
 
                 e.dataTransfer.setData('text/skill-id', skill.id);

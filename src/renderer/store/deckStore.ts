@@ -1249,6 +1249,7 @@ const mergeDefaults = (snapshot: AppStateSnapshot, storageInfo: AppStorageInfo |
     fileScope: typeof s?.fileScope === 'string' ? s.fileScope : '',
     version: typeof s?.version === 'string' && s.version.trim() ? s.version.trim() : '1.0.0',
     isSystem: Boolean(s?.isSystem),
+    category: typeof s?.category === 'string' && s.category.trim() ? s.category.trim() : undefined,
     updatedAt:
       typeof s?.updatedAt === 'number' && !isNaN(s.updatedAt) && s.updatedAt > 0
         ? s.updatedAt
