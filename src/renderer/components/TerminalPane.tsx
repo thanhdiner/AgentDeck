@@ -1,7 +1,7 @@
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 import { useEffect, useRef, memo, useState } from 'react';
-import type { TerminalPaneConfig } from '../../shared/types';
+import type { TerminalPaneConfig, AgentRun } from '../../shared/types';
 import { useDeckStore } from '../store/deckStore';
 import { useThemeStore } from '../store/themeStore';
 import {
@@ -359,9 +359,16 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
     state.tasks.find((t) => t.paneId === pane.id && t.status === 'running')
   );
   const taskId = activeTask ? activeTask.id : null;
-  const isAgentRunning = useDeckStore((state) =>
-    state.agentRuns.some((run) => run.terminalSessionId === pane.id && run.status === 'running')
-  );
+  const isAgentRunning = useDeckStore((state) => {
+    const isAlive = pane.processStatus === 'ready' || pane.processStatus === 'running' || pane.processStatus === 'idle' || pane.processStatus === 'spawning';
+    if (!isAlive) return false;
+
+    const hasRun = state.agentRuns.some((run) => run.terminalSessionId === pane.id && run.status === 'running');
+    const hasTask = state.tasks.some((t) => t.paneId === pane.id && t.status === 'running');
+    const isExecuting = pane.processStatus === 'running';
+
+    return Boolean(hasRun || hasTask || isExecuting);
+  });
 
   const hostRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -784,7 +791,37 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
         const res = await window.agentDeck.agentSubmitInput(payload);
         if (res.ok) {
           addToHistory(composerText);
-          useDeckStore.getState().addPaneInputBytes(pane.id, payload.text.length, true);
+          const store = useDeckStore.getState();
+          store.addPaneInputBytes(pane.id, payload.text.length, true);
+
+          const existingRun = store.agentRuns.find(
+            (r) => r.terminalSessionId === pane.id && r.status === 'running'
+          );
+          if (!existingRun && activeWorkspace) {
+            const matchedAgent = store.agentProfiles.find((a) => {
+              const lower = a.name.toLowerCase();
+              return lower.includes(agentType) || (agentType === 'antigravity' && lower.includes('agy'));
+            }) || store.agentProfiles[0];
+
+            if (matchedAgent) {
+              const newRun: AgentRun = {
+                id: `run-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                workspaceId: activeWorkspace.id,
+                taskId: activeTask?.id ?? null,
+                agentProfileId: matchedAgent.id,
+                terminalSessionId: pane.id,
+                command: payload.text,
+                logPath: pane.logPath,
+                status: 'running' as const,
+                startedAt: Date.now(),
+                finishedAt: null,
+                summary: ''
+              };
+              useDeckStore.setState({
+                agentRuns: [newRun, ...store.agentRuns]
+              });
+            }
+          }
           // Mark attachments as submitted in backend if any
           if (successImages.length > 0) {
             const imageIds = successImages.map((img) => img.id);
@@ -2164,27 +2201,39 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
       onDragOver={(e) => {
         e.preventDefault();
         e.stopPropagation();
+
+        const state = useDeckStore.getState();
+        const workspace = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
+        const assignedAgentId = workspace?.paneAgentAssignments?.[pane.id];
+        const activeRun = state.agentRuns.find((r) => r.terminalSessionId === pane.id && r.status === 'running');
+        
+        const titleLower = (pane.title || '').toLowerCase();
+        const isAgentTitle =
+          titleLower.includes('codex') ||
+          titleLower.includes('claude') ||
+          titleLower.includes('grok') ||
+          titleLower.includes('antigravity') ||
+          titleLower.includes('agy') ||
+          titleLower.includes('opencode');
+        const isProcessRunning = pane.processStatus === 'running' || pane.processStatus === 'ready' || pane.processStatus === 'idle';
+
+        const isBusy = Boolean(activeTask || activeRun || assignedAgentId || (isProcessRunning && isAgentTitle));
+        const isAgentDrag = e.dataTransfer.types.includes('text/agent-profile-id');
+
+        if (isAgentDrag) {
+          if (isBusy) {
+            e.dataTransfer.dropEffect = 'none';
+            paneRef.current?.setAttribute('data-skill-drop-label', `⚠️ Terminal '${pane.title}' đang chạy Agent CLI — Không thể thả`);
+          } else {
+            e.dataTransfer.dropEffect = 'move';
+            paneRef.current?.setAttribute('data-skill-drop-label', 'Drop Agent to run in this terminal');
+          }
+        }
       }}
       onDragEnter={(e) => {
         e.preventDefault();
         e.stopPropagation();
         setIsDragOver(true);
-
-        const state = useDeckStore.getState();
-        const hasAgentData = e.dataTransfer.types.includes('text/agent-profile-id');
-        const isProcessRunning = pane.processStatus === 'running' || pane.processStatus === 'ready';
-        const activeRun = state.agentRuns.find((r) => r.terminalSessionId === pane.id && r.status === 'running');
-        const isBusy = Boolean(activeTask || activeRun || isProcessRunning);
-
-        if (hasAgentData) {
-          if (isBusy) {
-            paneRef.current?.setAttribute('data-skill-drop-label', `⚠️ Terminal '${pane.title}' đang hoạt động — Không thể thả`);
-          } else {
-            paneRef.current?.setAttribute('data-skill-drop-label', 'Drop Agent to run in this terminal');
-          }
-        } else {
-          paneRef.current?.setAttribute('data-skill-drop-label', 'Drop skill to paste file path');
-        }
       }}
       onDragLeave={(e) => {
         e.preventDefault();
@@ -2205,12 +2254,23 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
           const agent = state.agentProfiles.find((a) => a.id === agentProfileId);
           if (!agent) return;
 
-          const isProcessRunning = pane.processStatus === 'running' || pane.processStatus === 'ready';
+          const workspace = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
+          const assignedAgentId = workspace?.paneAgentAssignments?.[pane.id];
           const activeRun = state.agentRuns.find((r) => r.terminalSessionId === pane.id && r.status === 'running');
-          const isBusy = Boolean(activeTask || activeRun || isProcessRunning);
+          const titleLower = (pane.title || '').toLowerCase();
+          const isAgentTitle =
+            titleLower.includes('codex') ||
+            titleLower.includes('claude') ||
+            titleLower.includes('grok') ||
+            titleLower.includes('antigravity') ||
+            titleLower.includes('agy') ||
+            titleLower.includes('opencode');
+          const isProcessRunning = pane.processStatus === 'running' || pane.processStatus === 'ready' || pane.processStatus === 'idle';
+
+          const isBusy = Boolean(activeTask || activeRun || assignedAgentId || (isProcessRunning && isAgentTitle));
 
           if (isBusy) {
-            window.alert(`Terminal '${pane.title}' đang hoạt động (process running). Vui lòng mở Terminal mới hoặc thả vào Terminal đang dừng!`);
+            window.alert(`Terminal '${pane.title}' đang chạy Agent CLI. Vui lòng thả vào Terminal đang rảnh hoặc mở Terminal mới!`);
             return;
           }
 

@@ -1341,6 +1341,7 @@ const mergeDefaults = (snapshot: AppStateSnapshot, storageInfo: AppStorageInfo |
       ? snapshot.agentRuns
           .map((run) => migrateAgentRun(run, snapshot.activeWorkspaceId ?? workspaces[0]?.id ?? null))
           .filter((run): run is AgentRun => Boolean(run))
+          .map((run) => (run.status === 'running' || run.status === 'paused' ? { ...run, status: 'cancelled' as const } : run))
       : [],
     permissionPolicy: { ...defaultPermissionPolicy, ...(snapshot.permissionPolicy ?? {}) },
     permissionRules: Array.isArray(snapshot.permissionRules) ? snapshot.permissionRules : [],
@@ -1676,6 +1677,8 @@ export type DeckStore = AppStateSnapshot & {
   setWorkspaceNote: (workspaceId: WorkspaceId, note: string | null) => void;
   setWorkspaceRestoreDirectory: (workspaceId: WorkspaceId, restore: boolean) => void;
   deleteWorkspace: (workspaceId: WorkspaceId) => void;
+  reorderWorkspaces: (sourceId: WorkspaceId, targetId: WorkspaceId) => void;
+  moveWorkspace: (workspaceId: WorkspaceId, direction: 'up' | 'down') => void;
   updatePaneLifecycle: (event: TerminalLifecycleEvent) => void;
   markPaneStarted: (paneId: PaneId, shell?: string | null) => void;
   markPaneExited: (paneId: PaneId, exitCode: number | null, signal?: number | null) => void;
@@ -2328,6 +2331,37 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
     persistImmediately(get());
   },
 
+  reorderWorkspaces: (sourceId, targetId) => {
+    if (sourceId === targetId) return;
+    const state = get();
+    const list = [...state.workspaces];
+    const sourceIdx = list.findIndex((w) => w.id === sourceId);
+    const targetIdx = list.findIndex((w) => w.id === targetId);
+    if (sourceIdx === -1 || targetIdx === -1) return;
+
+    const [moved] = list.splice(sourceIdx, 1);
+    list.splice(targetIdx, 0, moved);
+
+    set({ workspaces: list });
+    persistImmediately(get());
+  },
+
+  moveWorkspace: (workspaceId, direction) => {
+    const state = get();
+    const list = [...state.workspaces];
+    const idx = list.findIndex((w) => w.id === workspaceId);
+    if (idx === -1) return;
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= list.length) return;
+
+    const temp = list[idx];
+    list[idx] = list[targetIdx];
+    list[targetIdx] = temp;
+
+    set({ workspaces: list });
+    persistImmediately(get());
+  },
+
   updatePaneLifecycle: (event) => {
     const state = get();
     const workspace = state.workspaces.find((item) => item.panes[event.paneId]);
@@ -2373,13 +2407,13 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
           }
         };
       }),
-      agentRuns: (isTerminalExit || event.kind === 'idle' || event.kind === 'ready')
+      agentRuns: isTerminalExit
         ? state.agentRuns.map((run) =>
             run.workspaceId === workspace.id && run.terminalSessionId === event.paneId && (run.status === 'running' || run.status === 'paused')
               ? {
                   ...run,
                   status:
-                    (event.kind === 'idle' || event.kind === 'ready' || (event.kind === 'exited' && (event.exitCode === null || event.exitCode === 0)))
+                    (event.kind === 'exited' && (event.exitCode === null || event.exitCode === 0))
                       ? 'finished'
                       : event.kind === 'killed'
                         ? 'cancelled'
@@ -2387,13 +2421,11 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
                   finishedAt: timestamp,
                   summary:
                     event.message ??
-                    (event.kind === 'idle' || event.kind === 'ready'
-                      ? 'Command completed.'
-                      : event.kind === 'exited'
-                        ? 'Terminal process exited.'
-                        : event.kind === 'killed'
-                          ? 'Terminal process was killed.'
-                          : 'Terminal process failed.')
+                    (event.kind === 'exited'
+                      ? 'Terminal process exited.'
+                      : event.kind === 'killed'
+                        ? 'Terminal process was killed.'
+                        : 'Terminal process failed.')
                 }
               : run
           )

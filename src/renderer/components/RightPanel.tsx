@@ -3944,7 +3944,7 @@ function AgentsPanel() {
             const store = useDeckStore.getState();
             const workspace = store.workspaces.find((w) => w.id === store.activeWorkspaceId);
             const pane = workspace?.panes[paneId];
-            const isProcessRunning = pane ? pane.processStatus === 'running' || pane.processStatus === 'ready' : false;
+            const isProcessRunning = pane ? pane.processStatus === 'running' || pane.processStatus === 'ready' || pane.processStatus === 'idle' : false;
 
             const activeTask = store.tasks.find((t) => t.paneId === paneId && t.status === 'running');
             const activeRun = store.agentRuns.find((r) => r.terminalSessionId === paneId && r.status === 'running');
@@ -3979,7 +3979,7 @@ function AgentsPanel() {
             const store = useDeckStore.getState();
             const workspace = store.workspaces.find((w) => w.id === store.activeWorkspaceId);
             const pane = workspace?.panes[paneId];
-            const isProcessRunning = pane ? pane.processStatus === 'running' || pane.processStatus === 'ready' : false;
+            const isProcessRunning = pane ? pane.processStatus === 'running' || pane.processStatus === 'ready' || pane.processStatus === 'idle' : false;
 
             const activeTask = store.tasks.find((t) => t.paneId === paneId && t.status === 'running');
             const activeRun = store.agentRuns.find((r) => r.terminalSessionId === paneId && r.status === 'running');
@@ -4139,6 +4139,24 @@ function AgentsPanel() {
     [paneAgentMap]
   );
 
+  const commonAgentId = useMemo(() => {
+    if (workspacePanes.length === 0) return '';
+    const first = paneAgentMap[workspacePanes[0].id] || '';
+    if (!first) return '';
+    const allSame = workspacePanes.every((pane) => (paneAgentMap[pane.id] || '') === first);
+    return allSame ? first : '';
+  }, [workspacePanes, paneAgentMap]);
+
+  const handleSetAllPanes = (agentId: string) => {
+    if (agentId === '') return;
+    const targetId = agentId === '__CLEAR_ALL__' ? '' : agentId;
+    const next: Record<string, string> = {};
+    workspacePanes.forEach((pane) => {
+      next[pane.id] = targetId;
+    });
+    updateAssignments(next);
+  };
+
   const updateAssignments = (next: Record<string, string>) => {
     if (!activeWorkspaceId) return;
     setPaneAgentAssignments(activeWorkspaceId, next);
@@ -4201,7 +4219,7 @@ function AgentsPanel() {
 
   return (
     <div className="agents-panel">
-      <section className="panel-section agents-section">
+      <section className="panel-section agents-section agents-section-last">
         <div className="agents-section-head">
           <h3>Multi-pane launch</h3>
           <span className="agents-count">{workspacePanes.length} panes</span>
@@ -4212,6 +4230,32 @@ function AgentsPanel() {
           <p className="muted agents-empty-runs">No terminal panes in this workspace.</p>
         ) : (
           <div className="agents-multipane">
+            <div className="agents-multipane-global">
+              <div className="agents-multipane-global-label" title="Apply a single agent to all terminal panes at once">
+                <span className="agents-pane-icon" aria-hidden>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                  </svg>
+                </span>
+                <span>Global agent:</span>
+              </div>
+              <CustomSelect
+                className="agents-multipane-select agents-multipane-global-select"
+                value={commonAgentId}
+                onChange={(next) => handleSetAllPanes(next)}
+                capitalize={false}
+                aria-label="Set agent for all panes"
+                disabled={runnableAgents.length === 0}
+                options={[
+                  { value: '', label: '— set all panes —' },
+                  { value: '__CLEAR_ALL__', label: '— skip all —' },
+                  ...runnableAgents.map((agent) => ({
+                    value: agent.id,
+                    label: agent.name
+                  }))
+                ]}
+              />
+            </div>
             <div className="agents-multipane-list">
               {workspacePanes.map((pane) => {
                 const isActive = pane.id === activePaneId;
@@ -4392,27 +4436,7 @@ function AgentsPanel() {
         </div>
       </section>
 
-      <section className="panel-section agents-section agents-section-last">
-        <div className="agents-section-head">
-          <h3>Agent runs</h3>
-          <span className="agents-count">{workspaceRuns.length}</span>
-        </div>
-        {workspaceRuns.length === 0 ? (
-          <p className="muted agents-empty-runs">No runs for this workspace yet.</p>
-        ) : null}
-        {workspaceRuns.slice(0, limit).map((run) => (
-          <AgentRunCard run={run} key={run.id} />
-        ))}
-        {workspaceRuns.length > limit && (
-          <button
-            type="button"
-            className="agents-more-btn"
-            onClick={() => setLimit((prev) => prev + 10)}
-          >
-            Show older ({workspaceRuns.length - limit})
-          </button>
-        )}
-      </section>
+
     </div>
   );
 }

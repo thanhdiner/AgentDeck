@@ -2011,8 +2011,15 @@ function PaneShell({
   }, [tasks, pane.id]);
 
   const isAgentRunning = useMemo(() => {
-    return agentRuns.some((run) => run.terminalSessionId === pane.id && run.status === 'running');
-  }, [agentRuns, pane.id]);
+    const isAlive = pane.processStatus === 'ready' || pane.processStatus === 'running' || pane.processStatus === 'idle' || pane.processStatus === 'spawning';
+    if (!isAlive) return false;
+
+    const hasRun = agentRuns.some((run) => run.terminalSessionId === pane.id && run.status === 'running');
+    const hasTask = tasks.some((t) => t.paneId === pane.id && t.status === 'running');
+    const isExecuting = pane.processStatus === 'running';
+
+    return Boolean(hasRun || hasTask || isExecuting);
+  }, [agentRuns, tasks, pane.id, pane.processStatus]);
 
   const handleSave = () => {
     const trimmed = editValue.trim();
@@ -2040,7 +2047,7 @@ function PaneShell({
     <div className={`pane-shell${isActive ? ' is-active' : ''}`} style={shellStyle}>
       <div className="pane-titlebar">
         <div className="pane-session-meta">
-          <span className={`status-dot ${pane.processStatus}`} title={`Status: ${pane.processStatus}`} />
+          <span className={`status-dot ${isAgentRunning ? 'agent-running' : pane.processStatus}`} title={`Status: ${isAgentRunning ? 'Agent Running' : pane.processStatus}`} />
           {isEditing ? (
             <input
               className="pane-title-input"

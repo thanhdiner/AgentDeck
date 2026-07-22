@@ -104,10 +104,13 @@ export function WorkspaceSidebar({ collapsed = false }: { collapsed?: boolean })
   const setWorkspaceNote = useDeckStore((state) => state.setWorkspaceNote);
   const setWorkspaceRestoreDirectory = useDeckStore((state) => state.setWorkspaceRestoreDirectory);
   const deleteWorkspace = useDeckStore((state) => state.deleteWorkspace);
+  const reorderWorkspaces = useDeckStore((state) => state.reorderWorkspaces);
+  const moveWorkspace = useDeckStore((state) => state.moveWorkspace);
   const selectWorkspace = useDeckStore((state) => state.selectWorkspace);
   const loadingWorkspace = useDeckStore((state) => state.loadingWorkspace);
   const agentRuns = useDeckStore((state) => state.agentRuns);
   const agentProfiles = useDeckStore((state) => state.agentProfiles);
+  const tasks = useDeckStore((state) => state.tasks);
   const [templateId, setTemplateId] = useState('');
   const [editingWorkspaceId, setEditingWorkspaceId] = useState<string | null>(null);
   const [workspaceEditValue, setWorkspaceEditValue] = useState('');
@@ -117,6 +120,8 @@ export function WorkspaceSidebar({ collapsed = false }: { collapsed?: boolean })
   const [menuPosition, setMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const [workspaceToDelete, setWorkspaceToDelete] = useState<Workspace | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [draggedWorkspaceId, setDraggedWorkspaceId] = useState<string | null>(null);
+  const [dragOverWorkspaceId, setDragOverWorkspaceId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -281,11 +286,14 @@ export function WorkspaceSidebar({ collapsed = false }: { collapsed?: boolean })
           </button>
         ) : null}
 
-        {workspaces.map((workspace) => {
+        {workspaces.map((workspace, index) => {
           const isActive = workspace.id === activeWorkspaceId;
           const activeColor = workspace.color || '#38bdf8';
           const isPresetSelected = WORKSPACE_COLORS.some(preset => preset.value === workspace.color);
           const isCustomColor = !!workspace.color && !isPresetSelected;
+          const isDragging = draggedWorkspaceId === workspace.id;
+          const isDragOver = dragOverWorkspaceId === workspace.id && !isDragging;
+
           const cardStyle = isActive
             ? { borderColor: activeColor, background: `${activeColor}15`, boxShadow: `0 0 10px ${activeColor}33` }
             : { borderColor: `${activeColor}44`, background: '#1c1c1c' };
@@ -294,7 +302,45 @@ export function WorkspaceSidebar({ collapsed = false }: { collapsed?: boolean })
             <div 
               key={workspace.id} 
               className={`workspace-item ${isActive ? 'active' : ''}`} 
-              style={{ ...cardStyle, position: 'relative' }}
+              draggable={!editingWorkspaceId && !editingNoteWorkspaceId}
+              onDragStart={(e) => {
+                e.dataTransfer.setData('text/plain', workspace.id);
+                e.dataTransfer.effectAllowed = 'move';
+                setDraggedWorkspaceId(workspace.id);
+              }}
+              onDragEnd={() => {
+                setDraggedWorkspaceId(null);
+                setDragOverWorkspaceId(null);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (draggedWorkspaceId && draggedWorkspaceId !== workspace.id) {
+                  setDragOverWorkspaceId(workspace.id);
+                }
+              }}
+              onDragLeave={() => {
+                if (dragOverWorkspaceId === workspace.id) {
+                  setDragOverWorkspaceId(null);
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const sourceId = e.dataTransfer.getData('text/plain');
+                if (sourceId && sourceId !== workspace.id) {
+                  reorderWorkspaces(sourceId, workspace.id);
+                }
+                setDraggedWorkspaceId(null);
+                setDragOverWorkspaceId(null);
+              }}
+              style={{
+                ...cardStyle,
+                position: 'relative',
+                opacity: isDragging ? 0.4 : 1,
+                outline: isDragOver ? '2px dashed #38bdf8' : 'none',
+                outlineOffset: '-2px',
+                transition: 'opacity 0.15s, outline 0.15s'
+              }}
               onContextMenu={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -302,7 +348,7 @@ export function WorkspaceSidebar({ collapsed = false }: { collapsed?: boolean })
                   let x = e.clientX;
                   let y = e.clientY;
                   // Adjust coordinates so it doesn't go offscreen
-                  const menuHeight = 240;
+                  const menuHeight = 300;
                   const menuWidth = 160;
                   if (x + menuWidth > window.innerWidth) {
                     x = window.innerWidth - menuWidth - 10;
@@ -431,6 +477,44 @@ export function WorkspaceSidebar({ collapsed = false }: { collapsed?: boolean })
                     </span>
                     Continue in current folder
                   </button>
+
+                  <div className="workspace-dropdown-divider" />
+
+                  <button
+                    type="button"
+                    className="workspace-dropdown-item"
+                    onClick={() => {
+                      setOpenMenuWorkspaceId(null);
+                      moveWorkspace(workspace.id, 'up');
+                    }}
+                    disabled={loadingWorkspace || index === 0}
+                  >
+                    <span className="workspace-dropdown-icon" aria-hidden>
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M8 13V3M4 7l4-4 4 4" />
+                      </svg>
+                    </span>
+                    Move Up
+                  </button>
+                  <button
+                    type="button"
+                    className="workspace-dropdown-item"
+                    onClick={() => {
+                      setOpenMenuWorkspaceId(null);
+                      moveWorkspace(workspace.id, 'down');
+                    }}
+                    disabled={loadingWorkspace || index === workspaces.length - 1}
+                  >
+                    <span className="workspace-dropdown-icon" aria-hidden>
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M8 3v10M4 9l4 4 4-4" />
+                      </svg>
+                    </span>
+                    Move Down
+                  </button>
+
+                  <div className="workspace-dropdown-divider" />
+
                   <button
                     type="button"
                     className="workspace-dropdown-item is-danger"
@@ -564,16 +648,26 @@ export function WorkspaceSidebar({ collapsed = false }: { collapsed?: boolean })
                           let state: 'green' | 'yellow' | 'red' = 'red';
                           let tooltipText = `Tab ${index + 1}: ${paneConfig?.title || 'Terminal'}`;
 
-                          if (status === 'running' || status === 'spawning') {
+                          const activeRun = agentRuns.find(
+                            (r) => r.workspaceId === workspace.id && r.terminalSessionId === paneId && r.status === 'running'
+                          );
+                          const activeTask = tasks.find(
+                            (t) => t.paneId === paneId && t.status === 'running'
+                          );
+
+                          const isAlive = status === 'ready' || status === 'running' || status === 'idle' || status === 'spawning' || status === 'new';
+                          const isAgentWorking = isAlive && Boolean(activeRun || activeTask);
+                          const isRunning = status === 'running' || Boolean(activeRun || activeTask);
+
+                          if (isRunning && isAlive) {
                             state = 'green';
-                            const activeRun = agentRuns.find(
-                              (r) => r.workspaceId === workspace.id && r.terminalSessionId === paneId && r.status === 'running'
-                            );
-                            const agentName = activeRun ? agentProfiles.find((a) => a.id === activeRun.agentProfileId)?.name || 'Agent' : 'Task';
-                            tooltipText += ` — Running (${agentName})`;
-                          } else if (status === 'ready' || status === 'idle' || status === 'new') {
+                            const agentName = activeRun
+                              ? agentProfiles.find((a) => a.id === activeRun.agentProfileId)?.name || 'Agent'
+                              : 'Running';
+                            tooltipText += ` — Working (${agentName})`;
+                          } else if (isAlive) {
                             state = 'yellow';
-                            tooltipText += ` — Standby / Idle (${status})`;
+                            tooltipText += ` — Ready / Standby`;
                           } else {
                             state = 'red';
                             const label = status === 'restored' ? 'Inactive (Restored)' : (status || 'Off');
