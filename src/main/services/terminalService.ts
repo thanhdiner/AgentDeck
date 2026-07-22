@@ -394,17 +394,8 @@ export function writeTerminal(paneId: string, data: string): boolean {
     return false;
   }
 
-  // Wrap multi-character paste inputs in bracketed paste mode if not already wrapped.
-  // This prevents interactive CLI agents (agy, claude, ink, readline) from rendering character-by-character.
-  let writePayload = data;
-  if (
-    data.length > 1 &&
-    !data.startsWith('\x1b[200~') &&
-    !data.startsWith('\x1b') &&
-    !data.startsWith('\u001b')
-  ) {
-    writePayload = `\x1b[200~${data}\x1b[201~`;
-  }
+  // Write payload directly to PTY process
+  const writePayload = data;
 
   // Fast path: for normal typing, commands, and prompts (<= 4096 chars) when queue is idle,
   // write directly to pty process for immediate 0ms response time.
