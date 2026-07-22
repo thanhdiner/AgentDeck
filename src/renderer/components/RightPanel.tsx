@@ -9816,7 +9816,7 @@ function SkillsPanel() {
           onClick={handleDeleteAllCustomSkills}
           title="Delete all custom skills"
         >
-          🗑️ Delete All
+          Delete All
         </button>
       </div>
 
@@ -9938,7 +9938,7 @@ function SkillsPanel() {
               style={{ background: 'rgba(56, 189, 248, 0.15)', borderColor: '#38bdf8', color: '#bae6fd' }}
               onClick={handleImportFolder}
             >
-              📁 Sync / Import Folder (Obsidian / Categories)…
+              Sync / Import Folder (Obsidian / Categories)…
             </button>
           </div>
           <label className="skill-field">
