@@ -9702,6 +9702,8 @@ function SkillsPanel() {
   /** Brief per-skill export feedback (download / copy) */
   const [exportFeedback, setExportFeedback] = useState<{ id: string; message: string } | null>(null);
   const importFileRef = useRef<HTMLInputElement | null>(null);
+  const folderImportInputRef = useRef<HTMLInputElement | null>(null);
+  const targetImportFolderRef = useRef<string>('');
   const exportFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flashExportFeedback = (id: string, message: string) => {
@@ -10498,7 +10500,7 @@ function SkillsPanel() {
     }
   };
 
-  const handleImportFiles = (files: FileList | File[] | null) => {
+  const handleImportFiles = (files: FileList | File[] | null, targetCategory?: string) => {
     if (!files || files.length === 0) return;
     const fileArray = Array.from(files);
     let importedCount = 0;
@@ -10513,7 +10515,10 @@ function SkillsPanel() {
               const text = typeof reader.result === 'string' ? reader.result : '';
               const drafts = parseSkillImport(text);
               for (const draft of drafts) {
-                createSkill(draft);
+                createSkill({
+                  ...draft,
+                  category: targetCategory !== undefined ? targetCategory : draft.category
+                });
                 importedCount++;
               }
             } catch (err) {
@@ -10535,6 +10540,12 @@ function SkillsPanel() {
         setShowImport(false);
         setSkillFilter('all');
         setSkillSort('default');
+        if (targetCategory) {
+          setCollapsedSkillGroups((prev) => ({
+            ...prev,
+            [`cat-${targetCategory}`]: false
+          }));
+        }
       }
       if (errors.length > 0) {
         window.alert(`Import results:\nImported ${importedCount} skill(s).\n\nErrors:\n${errors.join('\n')}`);
@@ -10792,6 +10803,17 @@ function SkillsPanel() {
             style={{ display: 'none' }}
             onChange={(e) => {
               handleImportFiles(e.target.files);
+              e.target.value = '';
+            }}
+          />
+          <input
+            ref={folderImportInputRef}
+            type="file"
+            multiple
+            accept=".md,.markdown,.json,.skill.json,text/markdown,application/json"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              handleImportFiles(e.target.files, targetImportFolderRef.current);
               e.target.value = '';
             }}
           />
@@ -11715,6 +11737,38 @@ function SkillsPanel() {
               <path d="M12 5v14M5 12h14" />
             </svg>
             <span>Thêm Subfolder mới...</span>
+          </button>
+
+          <button
+            type="button"
+            className="context-menu-item"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              width: '100%',
+              padding: '6px 10px',
+              fontSize: '12px',
+              color: '#f4f4f5',
+              background: 'transparent',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              textAlign: 'left'
+            }}
+            onClick={() => {
+              const cat = folderContextMenu.catFolderName;
+              setFolderContextMenu(null);
+              targetImportFolderRef.current = cat;
+              folderImportInputRef.current?.click();
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            <span>Import Skill vào thư mục này...</span>
           </button>
 
           <button
