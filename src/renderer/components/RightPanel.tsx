@@ -9522,8 +9522,9 @@ function SkillsPanel() {
             const targetSkillId = overSkillEl.getAttribute('data-skill-card-id');
             if (targetSkillId && targetSkillId !== drag.skillId) {
               const targetSkill = state.skills.find((s) => s.id === targetSkillId);
-              if (targetSkill && targetSkill.category !== undefined) {
-                state.updateSkill(drag.skillId, { category: targetSkill.category });
+              if (targetSkill) {
+                const targetCat = resolveSkillCategory(targetSkill);
+                state.updateSkill(drag.skillId, { category: targetCat });
               }
               const rect = overSkillEl.getBoundingClientRect();
               const isGrid = skillsListRef.current?.classList.contains('is-grid');
@@ -9542,7 +9543,14 @@ function SkillsPanel() {
             if (groupKey.startsWith('cat-')) {
               const newCategory = groupKey.slice(4);
               state.updateSkill(drag.skillId, { category: newCategory });
-            } else if (groupKey === 'custom') {
+              if (!customFolders.includes(newCategory)) {
+                setCustomFolders((prev) => [...prev, newCategory]);
+              }
+              setCollapsedSkillGroups((prev) => ({
+                ...prev,
+                [groupKey]: false
+              }));
+            } else if (groupKey === 'custom' || groupKey === 'system' || groupKey === 'pinned') {
               state.updateSkill(drag.skillId, { category: '' });
             }
           }
@@ -11111,6 +11119,7 @@ function SkillsPanel() {
                 return (
                   <div
                     key={entry.key}
+                    data-group-key={entry.key}
                     className={`skill-group-header-row${isDragOverThisFolder ? ' is-drag-over' : ''}`}
                     style={{
                       display: 'flex',

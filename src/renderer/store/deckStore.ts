@@ -4253,7 +4253,7 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
     const timestamp = now();
     set((state) => ({
       skills: state.skills.map((skill) =>
-        skill.id === skillId && !skill.isSystem
+        skill.id === skillId
           ? { ...skill, ...patch, updatedAt: timestamp }
           : skill
       )
