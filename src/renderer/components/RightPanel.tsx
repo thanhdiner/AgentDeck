@@ -11186,62 +11186,40 @@ function SkillsPanel() {
                       <span className="skill-group-count">{entry.count}</span>
                     </button>
 
-                    {isCat && (
+                    {isCat && confirmDeleteFolderKey === catFolderName && (
                       <div
                         className="folder-header-actions"
                         style={{ display: 'flex', alignItems: 'center', gap: '3px', paddingRight: '2px' }}
                       >
-                        {confirmDeleteFolderKey === catFolderName ? (
-                          <>
-                            <button
-                              type="button"
-                              className="icon-button cancel-btn"
-                              title="Hủy xóa thư mục"
-                              style={{ width: '22px', height: '22px', padding: 0, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#a1a1aa', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setConfirmDeleteFolderKey(null);
-                              }}
-                            >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="18" y1="6" x2="6" y2="18" />
-                                <line x1="6" y1="6" x2="18" y2="18" />
-                              </svg>
-                            </button>
-                            <button
-                              type="button"
-                              className="icon-button folder-delete-btn"
-                              title="Bấm lại để xác nhận xóa thư mục!"
-                              style={{ width: '22px', height: '22px', padding: 0, background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444', borderRadius: '4px', color: '#ef4444', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteFolderClick(catFolderName);
-                              }}
-                            >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="20 6 9 17 4 12" />
-                              </svg>
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            className="icon-button"
-                            title="Tùy chọn thư mục (Chuột phải hoặc bấm vào đây)"
-                            style={{ width: '22px', height: '22px', padding: 0, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#a1a1aa', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              setFolderContextMenu({ x: rect.right, y: rect.bottom, catFolderName });
-                            }}
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <circle cx="12" cy="12" r="1" />
-                              <circle cx="12" cy="5" r="1" />
-                              <circle cx="12" cy="19" r="1" />
-                            </svg>
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          className="icon-button cancel-btn"
+                          title="Hủy xóa thư mục"
+                          style={{ width: '22px', height: '22px', padding: 0, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#a1a1aa', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmDeleteFolderKey(null);
+                          }}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button folder-delete-btn"
+                          title="Bấm lại để xác nhận xóa thư mục!"
+                          style={{ width: '22px', height: '22px', padding: 0, background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444', borderRadius: '4px', color: '#ef4444', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteFolderClick(catFolderName);
+                          }}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        </button>
                       </div>
                     )}
                   </div>
