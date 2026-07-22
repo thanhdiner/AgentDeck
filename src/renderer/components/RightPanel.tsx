@@ -3876,7 +3876,8 @@ function AgentsPanel() {
 
   const clearAgentDropHover = useCallback(() => {
     if (agentDropHoverRef.current) {
-      agentDropHoverRef.current.classList.remove('skill-drop-target-before', 'skill-drop-target-after');
+      agentDropHoverRef.current.classList.remove('skill-drop-target', 'skill-drop-target-before', 'skill-drop-target-after');
+      agentDropHoverRef.current.removeAttribute('data-skill-drop-label');
       agentDropHoverRef.current = null;
     }
   }, []);
@@ -3910,31 +3911,55 @@ function AgentsPanel() {
 
         const stack = document.elementsFromPoint(e.clientX, e.clientY);
         let targetCard: HTMLElement | null = null;
+        let targetTerminalPane: HTMLElement | null = null;
         for (const node of stack) {
           if (!(node instanceof Element)) continue;
-          const card = node.closest('[data-agent-card-id]') as HTMLElement | null;
-          if (card && card.getAttribute('data-agent-card-id') !== agentId) {
-            targetCard = card;
-            break;
+          if (!targetCard) {
+            const card = node.closest('[data-agent-card-id]') as HTMLElement | null;
+            if (card && card.getAttribute('data-agent-card-id') !== agentId) {
+              targetCard = card;
+            }
+          }
+          if (!targetTerminalPane) {
+            const term = node.closest('.terminal-pane') as HTMLElement | null;
+            if (term) targetTerminalPane = term;
           }
         }
 
-        if (!targetCard) {
+        const targetNode = targetTerminalPane || targetCard;
+
+        if (!targetNode) {
           clearAgentDropHover();
           return;
         }
 
-        const rect = targetCard.getBoundingClientRect();
+        if (agentDropHoverRef.current !== targetNode) {
+          clearAgentDropHover();
+          agentDropHoverRef.current = targetNode;
+        }
+
+        if (targetTerminalPane) {
+          const paneId = targetTerminalPane.getAttribute('data-pane-id');
+          const store = useDeckStore.getState();
+          const activeTask = store.tasks.find((t) => t.paneId === paneId && t.status === 'running');
+          const activeRun = store.agentRuns.find((r) => r.terminalSessionId === paneId && r.status === 'running');
+          const isBusy = Boolean(activeTask || activeRun);
+          targetTerminalPane.classList.add('skill-drop-target');
+          if (isBusy) {
+            targetTerminalPane.setAttribute('data-skill-drop-label', '⚠️ Terminal đang chạy Agent CLI — Không thể thả');
+          } else {
+            const agentObj = store.agentProfiles.find((a) => a.id === agentId);
+            targetTerminalPane.setAttribute('data-skill-drop-label', `Drop to run ${agentObj?.name || 'Agent'} in terminal`);
+          }
+          return;
+        }
+
+        const rect = targetCard!.getBoundingClientRect();
         const midY = rect.top + rect.height / 2;
         const place: 'before' | 'after' = e.clientY < midY ? 'before' : 'after';
 
-        if (agentDropHoverRef.current !== targetCard) {
-          clearAgentDropHover();
-          agentDropHoverRef.current = targetCard;
-        }
-
-        targetCard.classList.remove('skill-drop-target-before', 'skill-drop-target-after');
-        targetCard.classList.add(place === 'before' ? 'skill-drop-target-before' : 'skill-drop-target-after');
+        targetCard!.classList.remove('skill-drop-target-before', 'skill-drop-target-after');
+        targetCard!.classList.add(place === 'before' ? 'skill-drop-target-before' : 'skill-drop-target-after');
       };
 
       const handlePointerUp = (e: PointerEvent) => {
@@ -3942,11 +3967,27 @@ function AgentsPanel() {
         const cur = agentPointerReorderRef.current;
         const hover = agentDropHoverRef.current;
         if (cur?.active && hover) {
-          const targetId = hover.getAttribute('data-agent-card-id');
-          if (targetId && targetId !== agentId) {
-            const place = hover.classList.contains('skill-drop-target-before') ? 'before' : 'after';
-            captureAgentFlipRects();
-            moveAgentProfile(agentId, targetId, place);
+          const paneId = hover.getAttribute('data-pane-id');
+          if (paneId) {
+            const store = useDeckStore.getState();
+            const activeTask = store.tasks.find((t) => t.paneId === paneId && t.status === 'running');
+            const activeRun = store.agentRuns.find((r) => r.terminalSessionId === paneId && r.status === 'running');
+            const isBusy = Boolean(activeTask || activeRun);
+            if (isBusy) {
+              const workspace = store.workspaces.find((w) => w.id === store.activeWorkspaceId);
+              const paneTitle = workspace?.panes[paneId]?.title || 'Terminal';
+              window.alert(`Terminal '${paneTitle}' đang chạy Agent CLI. Vui lòng thả vào Terminal đang rảnh hoặc mở Terminal mới!`);
+            } else {
+              store.selectPane(paneId);
+              void store.runAgentInPane(agentId, paneId);
+            }
+          } else {
+            const targetId = hover.getAttribute('data-agent-card-id');
+            if (targetId && targetId !== agentId) {
+              const place = hover.classList.contains('skill-drop-target-before') ? 'before' : 'after';
+              captureAgentFlipRects();
+              moveAgentProfile(agentId, targetId, place);
+            }
           }
         }
         clearAgentDropHover();

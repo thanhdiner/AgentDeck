@@ -2169,7 +2169,23 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
         e.preventDefault();
         e.stopPropagation();
         setIsDragOver(true);
-        paneRef.current?.setAttribute('data-skill-drop-label', 'Drop skill to paste file path');
+
+        const state = useDeckStore.getState();
+        const hasAgentData = e.dataTransfer.types.includes('text/agent-profile-id');
+        const isBusy = Boolean(
+          activeTask ||
+          state.agentRuns.some((r) => r.terminalSessionId === pane.id && r.status === 'running')
+        );
+
+        if (hasAgentData) {
+          if (isBusy) {
+            paneRef.current?.setAttribute('data-skill-drop-label', '⚠️ Terminal đang chạy Agent CLI — Không thể thả');
+          } else {
+            paneRef.current?.setAttribute('data-skill-drop-label', 'Drop Agent to run in this terminal');
+          }
+        } else {
+          paneRef.current?.setAttribute('data-skill-drop-label', 'Drop skill to paste file path');
+        }
       }}
       onDragLeave={(e) => {
         e.preventDefault();
@@ -2182,6 +2198,28 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
         e.stopPropagation();
         setIsDragOver(false);
         paneRef.current?.removeAttribute('data-skill-drop-label');
+
+        // Agent Profile card → run agent in this pane (only if not currently running an agent CLI)
+        const agentProfileId = e.dataTransfer.getData('text/agent-profile-id');
+        if (agentProfileId) {
+          const state = useDeckStore.getState();
+          const agent = state.agentProfiles.find((a) => a.id === agentProfileId);
+          if (!agent) return;
+
+          const isBusy = Boolean(
+            activeTask ||
+            state.agentRuns.some((r) => r.terminalSessionId === pane.id && r.status === 'running')
+          );
+
+          if (isBusy) {
+            window.alert(`Terminal '${pane.title}' đang chạy Agent CLI. Vui lòng thả vào Terminal đang rảnh hoặc mở Terminal mới!`);
+            return;
+          }
+
+          state.selectPane(pane.id);
+          void state.runAgentInPane(agentProfileId, pane.id);
+          return;
+        }
 
         // Task card → run task in this pane (same as Run button)
         const taskId = e.dataTransfer.getData('text/task-id');
