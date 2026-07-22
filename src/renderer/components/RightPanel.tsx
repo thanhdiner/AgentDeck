@@ -8787,6 +8787,79 @@ function SkillsPanel() {
     },
     [collapsedSkillGroups]
   );
+
+  /** Custom user-created folder categories */
+  const [customFolders, setCustomFolders] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('agentdeck_custom_skill_folders');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('agentdeck_custom_skill_folders', JSON.stringify(customFolders));
+    } catch {
+      // Ignore storage errors
+    }
+  }, [customFolders]);
+
+  const handleCreateFolder = () => {
+    const input = window.prompt('Nhập tên thư mục mới (ví dụ: 10. DEPLOYMENT hoặc Custom Folder):');
+    if (!input || !input.trim()) return;
+    const name = input.trim();
+    if (!customFolders.includes(name)) {
+      setCustomFolders((prev) => [...prev, name]);
+    }
+    setCollapsedSkillGroups((prev) => ({
+      ...prev,
+      [`cat-${name}`]: false
+    }));
+  };
+
+  const handleRenameFolder = (oldName: string) => {
+    const input = window.prompt(`Đổi tên thư mục "${oldName}":`, oldName);
+    if (!input || !input.trim() || input.trim() === oldName) return;
+    const newName = input.trim();
+
+    setCustomFolders((prev) => prev.map((f) => (f === oldName ? newName : f)));
+
+    for (const skill of skills) {
+      if (skill.category?.trim() === oldName) {
+        updateSkill(skill.id, { category: newName });
+      }
+    }
+  };
+
+  const handleDeleteFolder = (folderName: string) => {
+    if (!window.confirm(`Bạn có chắc muốn xóa thư mục "${folderName}"?\n(Các skill trong thư mục này sẽ chuyển về Chưa phân loại)`)) return;
+
+    setCustomFolders((prev) => prev.filter((f) => f !== folderName));
+
+    for (const skill of skills) {
+      if (skill.category?.trim() === folderName) {
+        updateSkill(skill.id, { category: undefined });
+      }
+    }
+  };
+
+  const handleMoveSkillToFolder = (skill: Skill) => {
+    const current = skill.category || 'Chưa phân loại (Uncategorized)';
+    const folderListStr = categorySuggestions.length > 0 ? categorySuggestions.map((c) => `• ${c}`).join('\n') : '(Chưa có thư mục nào)';
+    const choice = window.prompt(
+      `Di chuyển "${skill.name}" vào thư mục:\nThư mục hiện tại: ${current}\n\nDanh sách thư mục có sẵn:\n${folderListStr}\n\nNhập tên thư mục mới hoặc chọn từ danh sách trên (bỏ trống để chuyển về Chưa phân loại):`,
+      skill.category || ''
+    );
+    if (choice === null) return;
+    const newCat = choice.trim() || undefined;
+    if (newCat && !customFolders.includes(newCat)) {
+      setCustomFolders((prev) => [...prev, newCat]);
+    }
+    updateSkill(skill.id, { category: newCat });
+  };
+
   const [isCreating, setIsCreating] = useState(false);
   const [editingSkillId, setEditingSkillId] = useState<string | null>(null);
   /** Inline confirm delete — second click on same skill id executes */
@@ -9837,9 +9910,15 @@ function SkillsPanel() {
     pushGroup('pinned', '📌 Pinned', pinned);
     pushGroup('system', '⚡ System', system);
 
-    // Group custom skills by category subfolder or smart name prefix
+    // Group custom skills by category subfolder
     const categoryMap = new Map<string, Skill[]>();
     const uncategorized: Skill[] = [];
+
+    for (const folder of customFolders) {
+      if (folder && folder.trim() && !categoryMap.has(folder.trim())) {
+        categoryMap.set(folder.trim(), []);
+      }
+    }
 
     for (const s of custom) {
       const cat = resolveSkillCategory(s);
@@ -9866,7 +9945,7 @@ function SkillsPanel() {
     }
 
     return entries;
-  }, [showSkillGroups, filteredSkills, pinnedSet, collapsedSkillGroups, isGroupCollapsed]);
+  }, [showSkillGroups, filteredSkills, pinnedSet, collapsedSkillGroups, isGroupCollapsed, customFolders]);
 
   // ── Virtual window (only when many skills; disabled while reordering for hit-tests) ──
   const [skillScrollTop, setSkillScrollTop] = useState(0);
@@ -9951,19 +10030,7 @@ function SkillsPanel() {
   const [category, setCategory] = useState('');
 
   const categorySuggestions = useMemo(() => {
-    const defaultStages = [
-      '1. Business',
-      '2. UI UX Design',
-      '3. Architecture Technical Design',
-      '4. Development',
-      '5. QA Testing',
-      '6. Security Review',
-      '7. DevOps Release',
-      '8. Operations Customer Support',
-      '9. Data Analytics',
-      '10. Product quay lại cải tiến'
-    ];
-    const existingCategories = new Set<string>(defaultStages);
+    const existingCategories = new Set<string>(customFolders);
     for (const s of skills) {
       if (s.category && s.category.trim()) {
         existingCategories.add(s.category.trim());
@@ -9972,7 +10039,7 @@ function SkillsPanel() {
     return Array.from(existingCategories).sort((a, b) =>
       a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
     );
-  }, [skills]);
+  }, [skills, customFolders]);
 
   const handleCreate = () => {
     if (!name.trim() || !promptTemplate.trim()) {
@@ -10357,6 +10424,9 @@ function SkillsPanel() {
         <button className="primary-btn" onClick={() => { setIsCreating(!isCreating); handleCancelEdit(); }}>
           {isCreating ? 'Cancel' : 'Add'}
         </button>
+        <button type="button" onClick={handleCreateFolder} title="Tạo thư mục mới để quản lý skills">
+          + Folder
+        </button>
         <button onClick={() => setShowImport(!showImport)}>
           {showImport ? 'Cancel' : 'Import'}
         </button>
@@ -10736,25 +10806,78 @@ function SkillsPanel() {
             {visibleSkillEntries.map((entry) => {
               if (entry.kind === 'header') {
                 const collapsed = isGroupCollapsed(entry.key);
+                const isCat = entry.key.startsWith('cat-');
+                const catFolderName = isCat ? entry.key.slice(4) : '';
+
                 return (
-                  <button
+                  <div
                     key={entry.key}
-                    data-group-key={entry.key}
-                    type="button"
-                    className={`skill-group-header${collapsed ? ' is-collapsed' : ''}`}
-                    onClick={() =>
-                      setCollapsedSkillGroups((prev) => ({
-                        ...prev,
-                        [entry.key]: !collapsed
-                      }))
-                    }
+                    className="skill-group-header-row"
+                    style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '4px', marginTop: '4px', marginBottom: '2px' }}
                   >
-                    <span className="skill-group-chevron" aria-hidden>
-                      {collapsed ? '▸' : '▾'}
-                    </span>
-                    <span className="skill-group-label">{entry.label}</span>
-                    <span className="skill-group-count">{entry.count}</span>
-                  </button>
+                    <button
+                      data-group-key={entry.key}
+                      type="button"
+                      className={`skill-group-header${collapsed ? ' is-collapsed' : ''}`}
+                      style={{ flex: 1, minWidth: 0, margin: 0 }}
+                      onClick={() =>
+                        setCollapsedSkillGroups((prev) => ({
+                          ...prev,
+                          [entry.key]: !collapsed
+                        }))
+                      }
+                    >
+                      <span className="skill-group-chevron" aria-hidden>
+                        {collapsed ? '▸' : '▾'}
+                      </span>
+                      <span className="skill-group-label" style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                        {entry.label}
+                      </span>
+                      <span className="skill-group-count">{entry.count}</span>
+                    </button>
+
+                    {isCat && (
+                      <div className="folder-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '3px', paddingRight: '2px' }}>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          title={`Thêm Skill mới vào ${catFolderName}`}
+                          style={{ width: '22px', height: '22px', padding: 0, fontSize: '12px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#e4e4e7', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCategory(catFolderName);
+                            setIsCreating(true);
+                          }}
+                        >
+                          +
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          title="Đổi tên thư mục"
+                          style={{ width: '22px', height: '22px', padding: 0, fontSize: '11px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#e4e4e7', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRenameFolder(catFolderName);
+                          }}
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          title="Xóa thư mục"
+                          style={{ width: '22px', height: '22px', padding: 0, fontSize: '11px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px', color: '#fca5a5', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteFolder(catFolderName);
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 );
               }
 
@@ -10879,6 +11002,15 @@ function SkillsPanel() {
                   {!skill.isSystem && (
                     <button type="button" onClick={() => handleStartEdit(skill)} title="Edit skill">
                       Edit
+                    </button>
+                  )}
+                  {!skill.isSystem && (
+                    <button
+                      type="button"
+                      onClick={() => handleMoveSkillToFolder(skill)}
+                      title="Di chuyển skill vào thư mục"
+                    >
+                      📁 {isGrid ? 'Move' : 'Folder'}
                     </button>
                   )}
                   {confirmDeleteSkillId !== skill.id ? (
