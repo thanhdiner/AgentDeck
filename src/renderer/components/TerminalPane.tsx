@@ -2057,11 +2057,16 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
       const el = document.activeElement;
       if (!el || !(el instanceof HTMLElement)) return false;
       if (el === textareaRef.current) return true;
-      // If xterm or host container already has focus, leave focus alone to prevent interrupting active input
-      if (hostRef.current?.contains(el) || el.closest('.xterm')) return true;
-      // Never steal keys from right panel / sidebar / modals / native fields
-      if (el.matches('input, textarea, select') || el.isContentEditable) return true;
+      // If xterm or host container ALREADY has focus inside THIS pane, leave focus alone
+      if (hostRef.current?.contains(el)) return true;
+      // Never steal focus from right panel / sidebar / modals / skill composer
       if (el.closest('.right-panel, .workspace-sidebar, .settings-modal-overlay, .skill-composer')) {
+        return true;
+      }
+      // If focus is in another terminal's xterm or terminal-pane element, transfer focus to this active pane.
+      // Otherwise, if focus is in a native form input outside the terminal grid, leave focus alone.
+      const isTerminalElement = el.classList.contains('xterm-helper-textarea') || Boolean(el.closest('.xterm, .terminal-pane'));
+      if (!isTerminalElement && (el.matches('input, textarea, select') || el.isContentEditable)) {
         return true;
       }
       return false;
