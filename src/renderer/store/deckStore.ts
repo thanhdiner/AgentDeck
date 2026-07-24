@@ -693,6 +693,30 @@ const setSplitRatio = (layout: PaneLayout, splitId: string, ratio: number): Pane
   };
 };
 
+const swapPaneIdsInLayout = (
+  layout: PaneLayout,
+  sourcePaneId: PaneId,
+  targetPaneId: PaneId
+): PaneLayout => {
+  if (layout.type === 'pane') {
+    if (layout.paneId === sourcePaneId) {
+      return { ...layout, paneId: targetPaneId };
+    }
+
+    if (layout.paneId === targetPaneId) {
+      return { ...layout, paneId: sourcePaneId };
+    }
+
+    return layout;
+  }
+
+  return {
+    ...layout,
+    first: swapPaneIdsInLayout(layout.first, sourcePaneId, targetPaneId),
+    second: swapPaneIdsInLayout(layout.second, sourcePaneId, targetPaneId)
+  };
+};
+
 const appendPaneToLayout = (layout: PaneLayout | null, newPaneId: PaneId): PaneLayout => {
   if (!layout) {
     return createPaneLayout(newPaneId);
@@ -1691,6 +1715,7 @@ export type DeckStore = AppStateSnapshot & {
   closeActivePane: () => void;
   renamePane: (paneId: PaneId, title: string) => void;
   renameActivePane: () => void;
+  swapPanePositions: (sourcePaneId: PaneId, targetPaneId: PaneId) => void;
   setGridLayout: (cols: number, rows: number) => void;
   maximizePane: (paneId: PaneId) => void;
   focusNextPane: () => void;
@@ -2911,6 +2936,40 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
       })
     });
     persistLayoutSoon(get);
+  },
+
+  swapPanePositions: (sourcePaneId, targetPaneId) => {
+    if (sourcePaneId === targetPaneId) {
+      return;
+    }
+
+    const state = get();
+    const workspace = state.workspaces.find((item) => item.id === state.activeWorkspaceId);
+    if (
+      !workspace?.layout ||
+      !workspace.panes[sourcePaneId] ||
+      !workspace.panes[targetPaneId]
+    ) {
+      return;
+    }
+
+    set({
+      workspaces: mutateWorkspace(state.workspaces, workspace.id, (item) => {
+        if (!item.layout) {
+          return item;
+        }
+
+        const layout = swapPaneIdsInLayout(item.layout, sourcePaneId, targetPaneId);
+        return {
+          ...item,
+          updatedAt: now(),
+          layout,
+          layoutJson: serializeLayout(layout),
+          savedLayout: null
+        };
+      })
+    });
+    persistImmediately(get());
   },
 
   setRightTab: (rightTab) => {

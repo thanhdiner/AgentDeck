@@ -112,6 +112,10 @@ const RUN_CONFIG_TYPE_OPTIONS: { value: RunConfig['type']; label: string }[] = [
   { value: 'custom', label: 'Custom' }
 ];
 
+const PANE_DRAG_MIME = 'application/x-agentdeck-pane';
+const PANE_DRAG_END_EVENT = 'agentdeck:pane-drag-end';
+let activeDraggedPaneId: string | null = null;
+
 /** Custom type dropdown — replaces native OS select (custom-dropdown-ui). */
 function RunConfigTypeSelect({
   value,
@@ -1940,6 +1944,8 @@ function PaneShell({
   isWorkspaceActive: boolean;
 }) {
   const [isEditing, setIsEditing] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isDropTarget, setIsDropTarget] = useState(false);
   const [isComposerVisible, setIsComposerVisible] = useState(() => {
     const val = localStorage.getItem(`agentdeck:composer-visible:${pane.id}`);
     if (val !== null) return val === 'true';
@@ -1948,6 +1954,16 @@ function PaneShell({
   });
   const [editValue, setEditValue] = useState(pane.title);
   const renamePane = useDeckStore((state) => state.renamePane);
+  const swapPanePositions = useDeckStore((state) => state.swapPanePositions);
+
+  useEffect(() => {
+    const clearDragState = () => {
+      setIsDragging(false);
+      setIsDropTarget(false);
+    };
+    window.addEventListener(PANE_DRAG_END_EVENT, clearDragState);
+    return () => window.removeEventListener(PANE_DRAG_END_EVENT, clearDragState);
+  }, []);
 
   const toggleComposer = () => {
     setIsComposerVisible((prev) => {
@@ -2044,9 +2060,73 @@ function PaneShell({
     : undefined;
 
   return (
-    <div className={`pane-shell${isActive ? ' is-active' : ''}`} style={shellStyle}>
+    <div
+      className={`pane-shell${isActive ? ' is-active' : ''}${isDragging ? ' is-pane-dragging' : ''}${isDropTarget ? ' is-pane-drop-target' : ''}`}
+      style={shellStyle}
+      onDragEnterCapture={(event) => {
+        if (!event.dataTransfer.types.includes(PANE_DRAG_MIME)) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        const sourcePaneId = activeDraggedPaneId;
+        setIsDropTarget(Boolean(sourcePaneId && sourcePaneId !== pane.id));
+      }}
+      onDragOverCapture={(event) => {
+        if (!event.dataTransfer.types.includes(PANE_DRAG_MIME)) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        event.dataTransfer.dropEffect = 'move';
+        const sourcePaneId = activeDraggedPaneId;
+        setIsDropTarget(Boolean(sourcePaneId && sourcePaneId !== pane.id));
+      }}
+      onDragLeave={(event) => {
+        if (
+          event.relatedTarget instanceof Node &&
+          event.currentTarget.contains(event.relatedTarget)
+        ) {
+          return;
+        }
+        setIsDropTarget(false);
+      }}
+      onDropCapture={(event) => {
+        if (!event.dataTransfer.types.includes(PANE_DRAG_MIME)) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        const sourcePaneId =
+          event.dataTransfer.getData(PANE_DRAG_MIME) || activeDraggedPaneId;
+        setIsDropTarget(false);
+        if (sourcePaneId && sourcePaneId !== pane.id) {
+          swapPanePositions(sourcePaneId, pane.id);
+        }
+        window.dispatchEvent(new Event(PANE_DRAG_END_EVENT));
+      }}
+    >
       <div className="pane-titlebar">
-        <div className="pane-session-meta">
+        <div
+          className="pane-session-meta"
+          draggable={!isEditing}
+          title={isEditing ? undefined : 'Drag to swap this terminal with another'}
+          onDragStart={(event) => {
+            if (isEditing) {
+              event.preventDefault();
+              return;
+            }
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData(PANE_DRAG_MIME, pane.id);
+            event.dataTransfer.setData('text/plain', pane.title);
+            activeDraggedPaneId = pane.id;
+            setIsDragging(true);
+          }}
+          onDragEnd={() => {
+            activeDraggedPaneId = null;
+            window.dispatchEvent(new Event(PANE_DRAG_END_EVENT));
+          }}
+        >
           <span className={`status-dot ${isAgentRunning ? 'agent-running' : pane.processStatus}`} title={`Status: ${isAgentRunning ? 'Agent Running' : pane.processStatus}`} />
           {isEditing ? (
             <input
@@ -2108,7 +2188,14 @@ function renderLayout(
       return null;
     }
 
-    return <PaneShell pane={pane} activePaneId={activePaneId} isWorkspaceActive={isWorkspaceActive} />;
+    return (
+      <PaneShell
+        key={pane.id}
+        pane={pane}
+        activePaneId={activePaneId}
+        isWorkspaceActive={isWorkspaceActive}
+      />
+    );
   }
 
   return (
