@@ -4,6 +4,7 @@ import type { PaneLayout, Workspace, RunConfig } from '../../shared/types';
 import { useDeckStore } from '../store/deckStore';
 import { PaneToolbar } from './PaneToolbar';
 import { TerminalPane } from './TerminalPane';
+import { clearAllTerminals } from '../utils/terminalBus';
 
 const PlayIcon = ({ size = 10 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2">
@@ -11,7 +12,7 @@ const PlayIcon = ({ size = 10 }: { size?: number }) => (
   </svg>
 );
 
-const StopIcon = ({ size = 10 }: { size?: number }) => (
+const StopIcon = ({ size = 13 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2">
     <rect x="4" y="4" width="16" height="16" rx="2" />
   </svg>
@@ -49,10 +50,27 @@ const RestartIcon = ({ size = 10 }: { size?: number }) => (
   </svg>
 );
 
-const CloseIcon = ({ size = 10 }: { size?: number }) => (
+const CloseIcon = ({ size = 13 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <line x1="18" y1="6" x2="6" y2="18" />
     <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
+const ClearIcon = ({ size = 13 }: { size?: number }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M3 6h18" />
+    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
   </svg>
 );
 
@@ -88,7 +106,7 @@ const LogsIcon = ({ size = 10 }: { size?: number }) => (
   </svg>
 );
 
-const ComposerIcon = ({ size = 11 }: { size?: number }) => (
+const ComposerIcon = ({ size = 14 }: { size?: number }) => (
   <svg
     width={size}
     height={size}
@@ -542,6 +560,15 @@ export function TerminalGrid() {
   const overlayMouseDownRef = useRef<EventTarget | null>(null);
   const [showDropdownWorkspaceId, setShowDropdownWorkspaceId] = useState<string | null>(null);
 
+  // Custom confirmation modal state (replaces native window.confirm to avoid EVKey hook issues)
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string;
+    message: string;
+    confirmText?: string;
+    danger?: boolean;
+    onConfirm: () => void;
+  } | null>(null);
+
   // Grid layout states
   const [showLayoutDropdown, setShowLayoutDropdown] = useState(false);
   const [hoveredCols, setHoveredCols] = useState(0);
@@ -949,7 +976,7 @@ export function TerminalGrid() {
                   {projectState.status !== 'stopped' && ws.runConfigs && ws.runConfigs.length > 0 && (
                     <button
                       type="button"
-                      className="workspace-icon-btn"
+                      className="workspace-icon-btn is-cyan"
                       onClick={() => {
                         const cfgId = projectState.activeConfigId || ws.defaultConfigId || (ws.runConfigs && ws.runConfigs[0]?.id);
                         if (cfgId) {
@@ -958,28 +985,28 @@ export function TerminalGrid() {
                       }}
                       title="Restart Project"
                     >
-                      <RestartIcon size={12} />
+                      <RestartIcon size={13} />
                     </button>
                   )}
 
                   {/* Configure settings icon button */}
                   <button
                     type="button"
-                    className="workspace-icon-btn"
+                    className="workspace-icon-btn is-warning"
                     onClick={() => setShowConfigModal(true)}
                     title="Configure Commands"
                   >
-                    <SettingsIcon size={12} />
+                    <SettingsIcon size={13} />
                   </button>
 
                   {/* Open Logs icon button */}
                   <button
                     type="button"
-                    className={`workspace-icon-btn${projectState.status === 'failed' ? ' is-danger' : ''}`}
+                    className={`workspace-icon-btn is-accent${projectState.status === 'failed' ? ' is-danger' : ''}`}
                     onClick={() => setShowLogsModal(true)}
-                    title="Open Project Logs"
+                    title="Open Project Run Console Logs (stdout/stderr từ nút ▶ Run)"
                   >
-                    <LogsIcon size={12} />
+                    <LogsIcon size={13} />
                   </button>
 
                   {/* Active preview link */}
@@ -1056,7 +1083,7 @@ export function TerminalGrid() {
                             setShowAgentDropdown(false);
                           }}
                           title="Choose Grid Layout"
-                          className={`workspace-icon-btn${showLayoutDropdown ? ' is-open' : ''}`}
+                          className={`workspace-icon-btn is-cyan${showLayoutDropdown ? ' is-open' : ''}`}
                         >
                           <LayoutGridIcon size={13} />
                         </button>
@@ -1243,33 +1270,61 @@ export function TerminalGrid() {
                         className="workspace-icon-btn"
                         style={{ color: '#38bdf8' }}
                       >
-                        <ComposerIcon size={13} />
+                        <ComposerIcon size={14} />
+                      </button>
+
+                      {/* Clear ALL Terminals Button */}
+                      <button
+                        onClick={(e) => {
+                          (e.currentTarget as HTMLElement)?.blur();
+                          setConfirmModal({
+                            title: 'Clear All Terminals',
+                            message: 'Are you sure you want to clear logs and terminal screens for ALL panes in this workspace?',
+                            confirmText: 'Clear All',
+                            danger: false,
+                            onConfirm: () => clearAllTerminals()
+                          });
+                        }}
+                        title="Clear ALL Terminals (Logs & Screens)"
+                        className="workspace-icon-btn is-warning"
+                      >
+                        <ClearIcon size={13} />
                       </button>
 
                       {/* Stop All Panes Button */}
                       <button
-                        onClick={() => {
-                          if (window.confirm('Stop all running terminal sessions in this workspace?')) {
-                            void stopAllPanes();
-                          }
+                        onClick={(e) => {
+                          (e.currentTarget as HTMLElement)?.blur();
+                          setConfirmModal({
+                            title: 'Stop All Panes',
+                            message: 'Are you sure you want to stop all running terminal sessions in this workspace?',
+                            confirmText: 'Stop All',
+                            danger: true,
+                            onConfirm: () => void stopAllPanes()
+                          });
                         }}
                         title="Stop All Panes"
                         className="workspace-icon-btn is-danger"
                       >
-                        <StopIcon size={11} />
+                        <StopIcon size={13} />
                       </button>
 
                       {/* Close All Panes Button */}
                       <button
-                        onClick={() => {
-                          if (window.confirm('Are you sure you want to close and delete all terminal panes in this workspace?')) {
-                            void closeAllPanes();
-                          }
+                        onClick={(e) => {
+                          (e.currentTarget as HTMLElement)?.blur();
+                          setConfirmModal({
+                            title: 'Close All Panes',
+                            message: 'Are you sure you want to close and delete all terminal panes in this workspace?',
+                            confirmText: 'Close All',
+                            danger: true,
+                            onConfirm: () => void closeAllPanes()
+                          });
                         }}
                         title="Close All Panes"
                         className="workspace-icon-btn is-danger"
                       >
-                        <CloseIcon size={11} />
+                        <CloseIcon size={13} />
                       </button>
                     </div>
                   </>
@@ -1535,13 +1590,43 @@ export function TerminalGrid() {
                             )}
                           </div>
 
+                          {/* Clear ALL Terminals */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              (e.currentTarget as HTMLElement)?.blur();
+                              clearAllTerminals();
+                              setShowMoreDropdown(false);
+                              if (activePaneId) {
+                                window.dispatchEvent(new CustomEvent('agentdeck:focus-terminal', { detail: { paneId: activePaneId } }));
+                              }
+                            }}
+                            className="dropdown-item-btn"
+                            style={{ color: '#60a5fa' }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = 'rgba(96, 165, 250, 0.12)';
+                              e.currentTarget.style.color = '#bfdbfe';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = 'transparent';
+                              e.currentTarget.style.color = '#60a5fa';
+                            }}
+                          >
+                            <ClearIcon size={11} />
+                            <span>Clear ALL Terminals</span>
+                          </button>
+
                           {/* Stop All Panes */}
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={(e) => {
+                              (e.currentTarget as HTMLElement)?.blur();
                               if (window.confirm('Stop all running terminal sessions in this workspace?')) {
                                 void stopAllPanes();
                                 setShowMoreDropdown(false);
+                              }
+                              if (activePaneId) {
+                                window.dispatchEvent(new CustomEvent('agentdeck:focus-terminal', { detail: { paneId: activePaneId } }));
                               }
                             }}
                             className="dropdown-item-btn stop-pane-btn"
@@ -1901,8 +1986,16 @@ export function TerminalGrid() {
                 }
               }}
             >
-              {projectLogs[activeWorkspace.id] ||
-                '--- No logs recorded yet. Run the project to see stdout/stderr console output. ---'}
+              {projectLogs[activeWorkspace.id] || (
+                <div style={{ textAlign: 'center', padding: '32px 16px', color: '#71717a' }}>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#a1a1aa', fontWeight: 500 }}>
+                    Chưa có log dự án nào được ghi lại.
+                  </p>
+                  <p style={{ margin: '8px 0 0', fontSize: '12px', color: '#71717a', lineHeight: 1.6 }}>
+                    Cửa sổ này dùng để xem realtime output (stdout/stderr) khi bạn bấm nút <strong style={{ color: '#38bdf8' }}>▶ Run</strong> trên thanh công cụ để khởi chạy dev server (như <code>npm run dev</code>, <code>vite</code>, v.v.).
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="project-logs-footer">
@@ -1930,6 +2023,141 @@ export function TerminalGrid() {
           </div>
         </div>
       )}
+      {/* 3. Custom Confirmation Modal Portal — xịn mịn không đụng native window.confirm */}
+      {confirmModal &&
+        createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.7)',
+              backdropFilter: 'blur(8px)',
+              zIndex: 99999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              animation: 'fadeIn 0.15s ease-out'
+            }}
+            onClick={() => {
+              setConfirmModal(null);
+              if (activePaneId) {
+                window.dispatchEvent(new CustomEvent('agentdeck:focus-terminal', { detail: { paneId: activePaneId } }));
+              }
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: '#18181b',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                borderRadius: '14px',
+                padding: '24px',
+                width: '400px',
+                maxWidth: '92vw',
+                boxShadow: '0 25px 60px rgba(0, 0, 0, 0.85), 0 0 1px rgba(255,255,255,0.2)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '18px',
+                color: '#f4f4f5'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
+                <div
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '12px',
+                    background: confirmModal.danger ? 'rgba(239, 68, 68, 0.15)' : 'rgba(96, 165, 250, 0.15)',
+                    border: `1px solid ${confirmModal.danger ? 'rgba(239, 68, 68, 0.3)' : 'rgba(96, 165, 250, 0.3)'}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: confirmModal.danger ? '#f87171' : '#60a5fa',
+                    flexShrink: 0
+                  }}
+                >
+                  {confirmModal.danger ? <StopIcon size={18} /> : <ClearIcon size={18} />}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: '#fafafa', letterSpacing: '-0.01em' }}>
+                    {confirmModal.title}
+                  </h3>
+                  <p style={{ margin: '6px 0 0', fontSize: '12.5px', color: '#a1a1aa', lineHeight: 1.5 }}>
+                    {confirmModal.message}
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmModal(null);
+                    if (activePaneId) {
+                      window.dispatchEvent(new CustomEvent('agentdeck:focus-terminal', { detail: { paneId: activePaneId } }));
+                    }
+                  }}
+                  style={{
+                    padding: '7px 16px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    background: 'rgba(255,255,255,0.04)',
+                    color: '#e4e4e7',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                    e.currentTarget.style.color = '#ffffff';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                    e.currentTarget.style.color = '#e4e4e7';
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  autoFocus
+                  onClick={() => {
+                    const action = confirmModal.onConfirm;
+                    setConfirmModal(null);
+                    action();
+                    if (activePaneId) {
+                      window.dispatchEvent(new CustomEvent('agentdeck:focus-terminal', { detail: { paneId: activePaneId } }));
+                    }
+                  }}
+                  style={{
+                    padding: '7px 18px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: confirmModal.danger ? '#ef4444' : '#3b82f6',
+                    color: '#ffffff',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    boxShadow: confirmModal.danger
+                      ? '0 2px 12px rgba(239, 68, 68, 0.45)'
+                      : '0 2px 12px rgba(59, 130, 246, 0.45)',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.filter = 'brightness(1.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.filter = 'none';
+                  }}
+                >
+                  {confirmModal.confirmText || 'Confirm'}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </section>
   );
 }
@@ -2030,11 +2258,13 @@ function PaneShell({
     const isAlive = pane.processStatus === 'ready' || pane.processStatus === 'running' || pane.processStatus === 'idle' || pane.processStatus === 'spawning';
     if (!isAlive) return false;
 
-    const hasRun = agentRuns.some((run) => run.terminalSessionId === pane.id && run.status === 'running');
+    const hasWorkingRun = agentRuns.some((run) => {
+      if (run.terminalSessionId !== pane.id || (run.status !== 'running' && run.status !== 'paused')) return false;
+      return Boolean(run.taskId) || !/^(agy|codex|claude|grok|agentdeck|npx|node)(\.exe|\.cmd)?$/i.test(run.command.trim());
+    });
     const hasTask = tasks.some((t) => t.paneId === pane.id && t.status === 'running');
-    const isExecuting = pane.processStatus === 'running';
 
-    return Boolean(hasRun || hasTask || isExecuting);
+    return Boolean(hasWorkingRun || hasTask || pane.processStatus === 'running');
   }, [agentRuns, tasks, pane.id, pane.processStatus]);
 
   const handleSave = () => {

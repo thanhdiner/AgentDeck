@@ -2351,7 +2351,8 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
         task.paneId && workspace.panes[task.paneId] ? { ...task, paneId: null, updatedAt: now() } : task
       ),
       projectNotes: state.projectNotes.filter((note) => note.workspaceId !== workspaceId),
-      reviewReports: state.reviewReports.filter((report) => report.workspaceId !== workspaceId)
+      reviewReports: state.reviewReports.filter((report) => report.workspaceId !== workspaceId),
+      figmaBuildPlans: (state.figmaBuildPlans || []).filter((plan) => plan.workspaceId !== workspaceId)
     });
     persistImmediately(get());
   },
