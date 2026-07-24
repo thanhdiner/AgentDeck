@@ -3942,21 +3942,9 @@ function AgentsPanel() {
           const paneId = targetTerminalPane.getAttribute('data-pane-id');
           if (paneId) {
             const store = useDeckStore.getState();
-            const workspace = store.workspaces.find((w) => w.id === store.activeWorkspaceId);
-            const pane = workspace?.panes[paneId];
-            const isProcessRunning = pane ? pane.processStatus === 'running' || pane.processStatus === 'ready' || pane.processStatus === 'idle' : false;
-
-            const activeTask = store.tasks.find((t) => t.paneId === paneId && t.status === 'running');
-            const activeRun = store.agentRuns.find((r) => r.terminalSessionId === paneId && r.status === 'running');
-            const isBusy = Boolean(activeTask || activeRun || isProcessRunning);
-
             targetTerminalPane.classList.add('skill-drop-target');
-            if (isBusy) {
-              targetTerminalPane.setAttribute('data-skill-drop-label', `⚠️ Terminal '${pane?.title || ''}' đang hoạt động — Không thể thả`);
-            } else {
-              const agentObj = store.agentProfiles.find((a) => a.id === agentId);
-              targetTerminalPane.setAttribute('data-skill-drop-label', `Drop to run ${agentObj?.name || 'Agent'} in terminal`);
-            }
+            const agentObj = store.agentProfiles.find((a) => a.id === agentId);
+            targetTerminalPane.setAttribute('data-skill-drop-label', `Drop to run ${agentObj?.name || 'Agent'} in terminal`);
           }
           return;
         }
@@ -3977,21 +3965,10 @@ function AgentsPanel() {
           const paneId = hover.getAttribute('data-pane-id');
           if (paneId) {
             const store = useDeckStore.getState();
-            const workspace = store.workspaces.find((w) => w.id === store.activeWorkspaceId);
-            const pane = workspace?.panes[paneId];
-            const isProcessRunning = pane ? pane.processStatus === 'running' || pane.processStatus === 'ready' || pane.processStatus === 'idle' : false;
-
-            const activeTask = store.tasks.find((t) => t.paneId === paneId && t.status === 'running');
-            const activeRun = store.agentRuns.find((r) => r.terminalSessionId === paneId && r.status === 'running');
-            const isBusy = Boolean(activeTask || activeRun || isProcessRunning);
-
-            if (isBusy) {
-              const paneTitle = pane?.title || 'Terminal';
-              window.alert(`Terminal '${paneTitle}' đang hoạt động (process running). Vui lòng mở Terminal mới hoặc thả vào Terminal đang dừng!`);
-            } else {
-              store.selectPane(paneId);
-              void store.runAgentInPane(agentId, paneId);
-            }
+            // Keep dropping an agent identical to pressing its Run button.
+            // runAgentInPane/runAgentProfile owns validation and active-run replacement.
+            store.selectPane(paneId);
+            void store.runAgentInPane(agentId, paneId);
           } else {
             const targetId = hover.getAttribute('data-agent-card-id');
             if (targetId && targetId !== agentId) {
@@ -4022,6 +3999,7 @@ function AgentsPanel() {
 
   const handleAgentDragStart = (e: React.DragEvent, agentId: string) => {
     setDraggingAgentId(agentId);
+    e.dataTransfer.setData('text/agent-profile-id', agentId);
     e.dataTransfer.setData('text/plain', agentId);
     e.dataTransfer.effectAllowed = 'move';
   };

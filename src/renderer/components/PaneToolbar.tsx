@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { TerminalPaneConfig } from '../../shared/types';
 import { useDeckStore } from '../store/deckStore';
-import { publishTerminalClear, publishTerminalRestart } from '../utils/terminalBus';
+import { publishTerminalClear, publishTerminalRestart, clearAllTerminals } from '../utils/terminalBus';
 
 const SparkleIcon = () => (
   <svg
@@ -167,7 +167,7 @@ const CloseIcon = () => (
   </svg>
 );
 
-const ComposerIcon = ({ size = 13 }: { size?: number }) => (
+const ComposerIcon = ({ size = 14 }: { size?: number }) => (
   <svg
     width={size}
     height={size}
@@ -368,7 +368,7 @@ export function PaneToolbar({ pane, onRenameTrigger, isComposerVisible, onToggle
       {!isCompact ? (
         <>
           <div ref={menuRef} className="agent-menu-wrapper">
-            <button onClick={() => setShowAgentMenu(!showAgentMenu)} title="Run agent in this pane">
+            <button onClick={() => setShowAgentMenu(!showAgentMenu)} title="Run agent in this pane" style={{ color: '#c084fc' }}>
               <SparkleIcon />
             </button>
             {showAgentMenu && (
@@ -401,10 +401,10 @@ export function PaneToolbar({ pane, onRenameTrigger, isComposerVisible, onToggle
               {activeRun.status === 'running' ? <PauseIcon /> : <PlayIcon />}
             </button>
           )}
-          <button onClick={() => splitPane(pane.id, 'vertical')} title="Split vertically">
+          <button onClick={() => splitPane(pane.id, 'vertical')} title="Split vertically" style={{ color: '#a1a1aa' }}>
             <SplitVIcon />
           </button>
-          <button onClick={() => splitPane(pane.id, 'horizontal')} title="Split horizontally">
+          <button onClick={() => splitPane(pane.id, 'horizontal')} title="Split horizontally" style={{ color: '#a1a1aa' }}>
             <SplitHIcon />
           </button>
           <button 
@@ -418,9 +418,9 @@ export function PaneToolbar({ pane, onRenameTrigger, isComposerVisible, onToggle
               }
             }} 
             title={isComposerVisible ? "Hide command composer (Shift+Click for ALL panes)" : "Show command composer (Shift+Click for ALL panes)"}
-            style={{ color: isComposerVisible ? '#38bdf8' : 'currentColor' }}
+            style={{ color: '#38bdf8' }}
           >
-            <ComposerIcon />
+            <ComposerIcon size={15} />
           </button>
 
           {/* 3-dots more menu */}
@@ -784,10 +784,10 @@ export function PaneToolbar({ pane, onRenameTrigger, isComposerVisible, onToggle
 
       {!isCompact && (
         <>
-          <button onClick={() => maximizePane(pane.id)} title={isMaximized ? 'Restore layout' : 'Maximize pane'}>
+          <button onClick={() => maximizePane(pane.id)} title={isMaximized ? 'Restore layout' : 'Maximize pane'} style={{ color: '#2dd4bf' }}>
             <MaximizeIcon maximized={isMaximized} />
           </button>
-          <button className="danger" onClick={() => closePane(pane.id)} title="Close pane">
+          <button className="danger" onClick={() => closePane(pane.id)} title="Close pane" style={{ color: '#f87171' }}>
             <CloseIcon />
           </button>
         </>

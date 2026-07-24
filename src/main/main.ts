@@ -96,6 +96,7 @@ app.disableHardwareAcceleration();
 
 let mainWindow: BrowserWindow | null = null;
 let cliWorkspacePath: string | null = null;
+let cliWorkspacePathProcessed = false;
 
 function parseCliArgs() {
   const args = process.argv.slice(1);
@@ -372,7 +373,8 @@ function registerIpcHandlers() {
   ipcMain.handle('workspace:select-folder', () => selectWorkspaceFolder(mainWindow));
   ipcMain.handle('state:load', async () => {
     const state = await readState();
-    if (cliWorkspacePath) {
+    if (cliWorkspacePath && !cliWorkspacePathProcessed) {
+      cliWorkspacePathProcessed = true;
       const normalizedPath = path.normalize(cliWorkspacePath);
       const existing = state.workspaces.find(
         (w) => path.normalize(w.rootPath) === normalizedPath || path.normalize(w.path) === normalizedPath
@@ -756,9 +758,7 @@ function registerIpcHandlers() {
   ipcMain.handle('attachment:cleanup-workspace', (_event, workspaceId: string) =>
     ipcResult(async () => {
       const state = await readState();
-      const remaining = await deleteWorkspaceAttachments(workspaceId, state);
-      state.attachments = remaining;
-      await writeState(state);
+      await deleteWorkspaceAttachments(workspaceId, state);
       return { success: true };
     })
   );

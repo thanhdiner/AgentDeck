@@ -797,7 +797,15 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
           const existingRun = store.agentRuns.find(
             (r) => r.terminalSessionId === pane.id && r.status === 'running'
           );
-          if (!existingRun && activeWorkspace) {
+          if (existingRun) {
+            useDeckStore.setState({
+              agentRuns: store.agentRuns.map((r) =>
+                r.id === existingRun.id
+                  ? { ...r, command: payload.text, startedAt: Date.now() }
+                  : r
+              )
+            });
+          } else if (activeWorkspace) {
             const matchedAgent = store.agentProfiles.find((a) => {
               const lower = a.name.toLowerCase();
               return lower.includes(agentType) || (agentType === 'antigravity' && lower.includes('agy'));
@@ -1588,6 +1596,18 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
     e.stopPropagation();
     setIsDragOver(false);
 
+    // The xterm host has native capture listeners, so agent drops that land
+    // directly on the terminal surface must be handled here as well.
+    const droppedAgentProfileId = e.dataTransfer?.getData('text/agent-profile-id');
+    if (droppedAgentProfileId) {
+      const store = useDeckStore.getState();
+      if (store.agentProfiles.some((agent) => agent.id === droppedAgentProfileId)) {
+        store.selectPane(pane.id);
+        void store.runAgentInPane(droppedAgentProfileId, pane.id);
+      }
+      return;
+    }
+
     // Prefer task drop over treating task id as shell text
     const droppedTaskId =
       e.dataTransfer?.getData('text/task-id') ||
@@ -1718,6 +1738,10 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
     const handleHostDragOver = (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      if (e.dataTransfer?.types.includes('text/agent-profile-id')) {
+        e.dataTransfer.dropEffect = 'move';
+        paneRef.current?.setAttribute('data-skill-drop-label', 'Drop Agent to run in this terminal');
+      }
     };
 
     const handleHostDragEnter = (e: DragEvent) => {
@@ -1730,9 +1754,11 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
       e.preventDefault();
       e.stopPropagation();
       setIsDragOver(false);
+      paneRef.current?.removeAttribute('data-skill-drop-label');
     };
 
     const handleHostDrop = (e: DragEvent) => {
+      paneRef.current?.removeAttribute('data-skill-drop-label');
       // Task card drop → same as Run button, on this pane
       const taskId = e.dataTransfer?.getData('text/task-id');
       if (taskId) {
@@ -1886,7 +1912,8 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
       updatePaneLifecycle(event);
     });
     const unsubscribeClear = subscribeTerminalClear((paneId) => {
-      if (paneId === pane.id) {
+      if (!paneId || paneId === pane.id) {
+        window.agentDeck.terminalWrite(pane.id, '\x0c');
         terminal.clear();
       }
     });
@@ -2207,32 +2234,11 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
         e.preventDefault();
         e.stopPropagation();
 
-        const state = useDeckStore.getState();
-        const workspace = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
-        const assignedAgentId = workspace?.paneAgentAssignments?.[pane.id];
-        const activeRun = state.agentRuns.find((r) => r.terminalSessionId === pane.id && r.status === 'running');
-        
-        const titleLower = (pane.title || '').toLowerCase();
-        const isAgentTitle =
-          titleLower.includes('codex') ||
-          titleLower.includes('claude') ||
-          titleLower.includes('grok') ||
-          titleLower.includes('antigravity') ||
-          titleLower.includes('agy') ||
-          titleLower.includes('opencode');
-        const isProcessRunning = pane.processStatus === 'running' || pane.processStatus === 'ready' || pane.processStatus === 'idle';
-
-        const isBusy = Boolean(activeTask || activeRun || assignedAgentId || (isProcessRunning && isAgentTitle));
         const isAgentDrag = e.dataTransfer.types.includes('text/agent-profile-id');
 
         if (isAgentDrag) {
-          if (isBusy) {
-            e.dataTransfer.dropEffect = 'none';
-            paneRef.current?.setAttribute('data-skill-drop-label', `⚠️ Terminal '${pane.title}' đang chạy Agent CLI — Không thể thả`);
-          } else {
-            e.dataTransfer.dropEffect = 'move';
-            paneRef.current?.setAttribute('data-skill-drop-label', 'Drop Agent to run in this terminal');
-          }
+          e.dataTransfer.dropEffect = 'move';
+          paneRef.current?.setAttribute('data-skill-drop-label', 'Drop Agent to run in this terminal');
         }
       }}
       onDragEnter={(e) => {
@@ -2252,32 +2258,12 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
         setIsDragOver(false);
         paneRef.current?.removeAttribute('data-skill-drop-label');
 
-        // Agent Profile card → run agent in this pane (only if not currently running an agent CLI)
+        // Agent Profile card → exactly the same launch path as its Run button.
         const agentProfileId = e.dataTransfer.getData('text/agent-profile-id');
         if (agentProfileId) {
           const state = useDeckStore.getState();
           const agent = state.agentProfiles.find((a) => a.id === agentProfileId);
           if (!agent) return;
-
-          const workspace = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
-          const assignedAgentId = workspace?.paneAgentAssignments?.[pane.id];
-          const activeRun = state.agentRuns.find((r) => r.terminalSessionId === pane.id && r.status === 'running');
-          const titleLower = (pane.title || '').toLowerCase();
-          const isAgentTitle =
-            titleLower.includes('codex') ||
-            titleLower.includes('claude') ||
-            titleLower.includes('grok') ||
-            titleLower.includes('antigravity') ||
-            titleLower.includes('agy') ||
-            titleLower.includes('opencode');
-          const isProcessRunning = pane.processStatus === 'running' || pane.processStatus === 'ready' || pane.processStatus === 'idle';
-
-          const isBusy = Boolean(activeTask || activeRun || assignedAgentId || (isProcessRunning && isAgentTitle));
-
-          if (isBusy) {
-            window.alert(`Terminal '${pane.title}' đang chạy Agent CLI. Vui lòng thả vào Terminal đang rảnh hoặc mở Terminal mới!`);
-            return;
-          }
 
           state.selectPane(pane.id);
           void state.runAgentInPane(agentProfileId, pane.id);

@@ -7,6 +7,7 @@ import { FigmaImportModal } from './components/FigmaImportModal';
 import { SettingsModal } from './components/SettingsModal';
 import { AppTooltip } from './components/AppTooltip';
 import { useDeckStore } from './store/deckStore';
+import { clearAllTerminals, publishTerminalClear } from './utils/terminalBus';
 import type { FigmaPluginSelectionPayload } from '../shared/types';
 
 const ChevronDownIcon = ({ size = 11 }: { size?: number }) => (
@@ -173,6 +174,24 @@ export function App() {
         window.dispatchEvent(
           new CustomEvent('agentdeck:set-composer-all', { detail: { toggle: true } })
         );
+      }
+    },
+    {
+      id: 'clear-pane-terminal',
+      label: 'Clear active terminal pane',
+      disabled: !hasActivePane,
+      run: () => {
+        if (activePaneId) {
+          void window.agentDeck.terminalClearLog(activePaneId);
+          publishTerminalClear(activePaneId);
+        }
+      }
+    },
+    {
+      id: 'clear-all-terminals',
+      label: 'Clear ALL terminal panes',
+      run: () => {
+        clearAllTerminals();
       }
     }
   ];

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import type { Workspace } from '../../shared/types';
 import { useDeckStore } from '../store/deckStore';
 
@@ -347,18 +348,17 @@ export function WorkspaceSidebar({ collapsed = false }: { collapsed?: boolean })
                 if (!loadingWorkspace) {
                   let x = e.clientX;
                   let y = e.clientY;
-                  // Adjust coordinates so it doesn't go offscreen
-                  const menuHeight = 300;
-                  const menuWidth = 160;
-                  if (x + menuWidth > window.innerWidth) {
+                  const menuHeight = 310;
+                  const menuWidth = 200;
+                  if (x + menuWidth > window.innerWidth - 10) {
                     x = window.innerWidth - menuWidth - 10;
                   }
-                  if (y + menuHeight > window.innerHeight) {
-                    y = window.innerHeight - menuHeight - 10;
+                  if (y + menuHeight > window.innerHeight - 10) {
+                    y = Math.max(10, y - menuHeight);
                   }
                   x = Math.max(10, x);
                   y = Math.max(10, y);
-                  
+
                   setOpenMenuWorkspaceId(workspace.id);
                   setMenuPosition({ x, y });
                 }
@@ -369,8 +369,28 @@ export function WorkspaceSidebar({ collapsed = false }: { collapsed?: boolean })
                 className="workspace-dots-btn"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setMenuPosition(null);
-                  setOpenMenuWorkspaceId(openMenuWorkspaceId === workspace.id ? null : workspace.id);
+                  if (openMenuWorkspaceId === workspace.id) {
+                    setOpenMenuWorkspaceId(null);
+                    setMenuPosition(null);
+                  } else {
+                    const btnRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                    const menuWidth = 200;
+                    const menuHeight = 310;
+
+                    let left = btnRect.right - menuWidth;
+                    if (left < 10) left = 10;
+                    if (left + menuWidth > window.innerWidth - 10) {
+                      left = window.innerWidth - menuWidth - 10;
+                    }
+
+                    let top = btnRect.bottom + 4;
+                    if (top + menuHeight > window.innerHeight - 10) {
+                      top = Math.max(10, btnRect.top - menuHeight - 4);
+                    }
+
+                    setMenuPosition({ x: left, y: top });
+                    setOpenMenuWorkspaceId(workspace.id);
+                  }
                 }}
                 disabled={loadingWorkspace}
                 title="More actions"
@@ -403,27 +423,21 @@ export function WorkspaceSidebar({ collapsed = false }: { collapsed?: boolean })
                 </svg>
               </button>
 
-              {/* Dropdown menu — crisp-text-dark-ui solid surface */}
-              {openMenuWorkspaceId === workspace.id && (
-                <div
-                  className="workspace-dropdown-menu"
-                  onClick={(e) => e.stopPropagation()}
-                  style={
-                    menuPosition
-                      ? {
-                          position: 'fixed',
-                          left: `${menuPosition.x}px`,
-                          top: `${menuPosition.y}px`,
-                          zIndex: 10000
-                        }
-                      : {
-                          position: 'absolute',
-                          top: '30px',
-                          right: '6px',
-                          zIndex: 10
-                        }
-                  }
-                >
+              {/* Dropdown menu — portal rendered with smart positioning */}
+              {openMenuWorkspaceId === workspace.id && menuPosition &&
+                createPortal(
+                  <div
+                    className="workspace-dropdown-menu"
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      position: 'fixed',
+                      left: `${menuPosition.x}px`,
+                      top: `${menuPosition.y}px`,
+                      zIndex: 100000,
+                      maxHeight: `${window.innerHeight - 20}px`,
+                      overflowY: 'auto'
+                    }}
+                  >
                   <button
                     type="button"
                     className="workspace-dropdown-item"
@@ -591,7 +605,8 @@ export function WorkspaceSidebar({ collapsed = false }: { collapsed?: boolean })
                       />
                     </button>
                   </div>
-                </div>
+                </div>,
+                document.body
               )}
 
               <button className="workspace-select" onClick={() => selectWorkspace(workspace.id)} disabled={loadingWorkspace}>
@@ -656,14 +671,19 @@ export function WorkspaceSidebar({ collapsed = false }: { collapsed?: boolean })
                           );
 
                           const isAlive = status === 'ready' || status === 'running' || status === 'idle' || status === 'spawning' || status === 'new';
-                          const isAgentWorking = isAlive && Boolean(activeRun || activeTask);
-                          const isRunning = status === 'running' || Boolean(activeRun || activeTask);
+                          const isRunWorking = Boolean(
+                            activeRun && (
+                              activeRun.taskId ||
+                              !/^(agy|codex|claude|grok|agentdeck|npx|node)(\.exe|\.cmd)?$/i.test(activeRun.command.trim())
+                            )
+                          );
+                          const isAgentWorking = isAlive && Boolean(isRunWorking || activeTask || status === 'running');
 
-                          if (isRunning && isAlive) {
+                          if (isAgentWorking) {
                             state = 'green';
                             const agentName = activeRun
                               ? agentProfiles.find((a) => a.id === activeRun.agentProfileId)?.name || 'Agent'
-                              : 'Running';
+                              : 'Task';
                             tooltipText += ` — Working (${agentName})`;
                           } else if (isAlive) {
                             state = 'yellow';
