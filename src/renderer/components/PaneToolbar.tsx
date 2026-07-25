@@ -197,6 +197,40 @@ const MoreIcon = () => (
   </svg>
 );
 
+const StopIcon = () => (
+  <svg
+    width="13"
+    height="13"
+    viewBox="0 0 16 16"
+    fill="currentColor"
+  >
+    <rect x="3.5" y="3.5" width="9" height="9" rx="1.5" />
+  </svg>
+);
+
+const ChevronIcon = ({ open }: { open: boolean }) => (
+  <svg
+    width="10"
+    height="10"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{
+      marginLeft: 'auto',
+      transform: open ? 'rotate(180deg)' : 'rotate(0deg)',
+      transition: 'transform 0.15s ease',
+      opacity: 0.7,
+      flexShrink: 0
+    }}
+  >
+    <path d="M4 6l4 4 4-4" />
+  </svg>
+);
+
+
 
 type PaneToolbarProps = {
   pane: TerminalPaneConfig;
@@ -214,6 +248,7 @@ export function PaneToolbar({ pane, onRenameTrigger, isComposerVisible, onToggle
 
   const agentProfiles = useDeckStore((state) => state.agentProfiles);
   const runAgentInPane = useDeckStore((state) => state.runAgentInPane);
+  const stopPane = useDeckStore((state) => state.stopPane);
   const agentRuns = useDeckStore((state) => state.agentRuns);
   const pauseAgentRun = useDeckStore((state) => state.pauseAgentRun);
   const resumeAgentRun = useDeckStore((state) => state.resumeAgentRun);
@@ -424,7 +459,7 @@ export function PaneToolbar({ pane, onRenameTrigger, isComposerVisible, onToggle
           </button>
 
           {/* 3-dots more menu */}
-          <div ref={moreMenuRef} className="more-menu-wrapper" style={{ position: 'relative', display: 'inline-flex' }}>
+          <div ref={moreMenuRef} className="more-menu-wrapper" style={{ position: 'relative', display: 'inline-flex', zIndex: showMoreMenu ? 300 : 'auto' }}>
             <button onClick={() => setShowMoreMenu(!showMoreMenu)} title="More actions">
               <MoreIcon />
             </button>
@@ -537,20 +572,41 @@ export function PaneToolbar({ pane, onRenameTrigger, isComposerVisible, onToggle
                   </span>
                   <span>{isRestored ? 'Start session' : 'Restart session'}</span>
                 </button>
+                <button
+                  type="button"
+                  className="pane-more-item"
+                  onClick={() => {
+                    void stopPane(pane.id);
+                    setShowMoreMenu(false);
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)';
+                    e.currentTarget.style.color = '#fca5a5';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = '#e4e4e7';
+                  }}
+                >
+                  <span style={{ color: '#ef4444', display: 'inline-flex', alignItems: 'center' }}>
+                    <StopIcon />
+                  </span>
+                  <span>Stop session</span>
+                </button>
               </div>
             )}
           </div>
         </>
       ) : (
         /* Compact Mode: Collapse buttons into More action menu (solid crisp surface) */
-        <div ref={moreMenuRef} className="more-menu-wrapper" style={{ position: 'relative', display: 'inline-flex' }}>
+        <div ref={moreMenuRef} className="more-menu-wrapper" style={{ position: 'relative', display: 'inline-flex', zIndex: showMoreMenu ? 300 : 'auto' }}>
           <button onClick={() => setShowMoreMenu(!showMoreMenu)} title="More actions">
             <MoreIcon />
           </button>
           {showMoreMenu && (
             <div className="pane-more-dropdown-menu">
-              {/* 1. Run Agent (compact mode) */}
-              <div ref={menuRef} className="pane-more-submenu-anchor">
+              {/* 1. Run Agent (compact accordion mode) */}
+              <div ref={menuRef} className="pane-more-accordion-group">
                 <button
                   type="button"
                   ref={nestedAgentButtonRef}
@@ -558,21 +614,24 @@ export function PaneToolbar({ pane, onRenameTrigger, isComposerVisible, onToggle
                   onClick={() => setShowAgentMenu(!showAgentMenu)}
                 >
                   <SparkleIcon />
-                  Run Agent
+                  <span>Run Agent</span>
+                  <ChevronIcon open={showAgentMenu} />
                 </button>
                 {showAgentMenu && (
-                  <div className="pane-more-submenu agent-dropdown-menu">
+                  <div className="pane-more-accordion-content">
                     {agentProfiles.map((agent) => (
                       <button
                         type="button"
                         key={agent.id}
+                        className="pane-more-accordion-item"
                         onClick={() => {
                           void runAgentInPane(agent.id, pane.id);
                           setShowAgentMenu(false);
                           setShowMoreMenu(false);
                         }}
                       >
-                        {agent.name}
+                        <span className="agent-dot" />
+                        <span>{agent.name}</span>
                       </button>
                     ))}
                   </div>
@@ -752,6 +811,27 @@ export function PaneToolbar({ pane, onRenameTrigger, isComposerVisible, onToggle
                   {isRestored ? <PlayIcon /> : <RestartIcon />}
                 </span>
                 <span>{isRestored ? 'Start session' : 'Restart session'}</span>
+              </button>
+              <button
+                type="button"
+                className="pane-more-item"
+                onClick={() => {
+                  void stopPane(pane.id);
+                  setShowMoreMenu(false);
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.12)';
+                  e.currentTarget.style.color = '#fca5a5';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = '#e4e4e7';
+                }}
+              >
+                <span style={{ color: '#ef4444', display: 'inline-flex', alignItems: 'center' }}>
+                  <StopIcon />
+                </span>
+                <span>Stop session</span>
               </button>
 
               <button

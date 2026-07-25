@@ -8,7 +8,8 @@ import {
   subscribeTerminalClear,
   subscribeTerminalLifecycle,
   subscribeTerminalOutput,
-  subscribeTerminalRestart
+  subscribeTerminalRestart,
+  publishTerminalRestart
 } from '../utils/terminalBus';
 function parseTerminalLogForReplay(raw: string): string {
   if (!raw) return '';
@@ -2406,7 +2407,7 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
                 className="terminal-inactive-overlay-btn primary"
                 onClick={(event) => {
                   event.stopPropagation();
-                  startPane();
+                  publishTerminalRestart(pane.id);
                 }}
               >
                 Start terminal

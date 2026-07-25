@@ -1747,6 +1747,7 @@ export type DeckStore = AppStateSnapshot & {
   /** Persist multi-pane launch board (pane → agent) on the workspace. Survives restart. */
   setPaneAgentAssignments: (workspaceId: WorkspaceId, assignments: Record<PaneId, AgentProfileId | ''>) => void;
   stopAllPanes: () => Promise<void>;
+  stopPane: (paneId: PaneId) => Promise<void>;
   closeAllPanes: () => void;
   pauseAgentRun: (runId: AgentRunId) => void;
   resumeAgentRun: (runId: AgentRunId) => void;
@@ -3747,6 +3748,11 @@ export const useDeckStore = create<DeckStore>((set, get) => ({
     for (const pid of paneIds) {
       void window.agentDeck.terminalKill(pid);
     }
+  },
+
+  stopPane: async (paneId: PaneId) => {
+    if (!paneId) return;
+    void window.agentDeck.terminalKill(paneId);
   },
 
   closeAllPanes: () => {

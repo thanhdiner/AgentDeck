@@ -5513,9 +5513,12 @@ label:has(input[type="radio"]) {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 168px;
+  min-width: 175px;
   width: max-content;
+  max-width: 260px;
   padding: 6px;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   -webkit-font-smoothing: antialiased;
@@ -5524,10 +5527,22 @@ label:has(input[type="radio"]) {
   animation: dropdown-fade-in 0.12s ease-out;
 }
 
+.pane-more-dropdown-menu::-webkit-scrollbar,
+.agent-dropdown-menu::-webkit-scrollbar {
+  width: 4px;
+}
+
+.pane-more-dropdown-menu::-webkit-scrollbar-thumb,
+.agent-dropdown-menu::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
 .agent-dropdown-menu {
   left: 0;
   right: auto;
-  min-width: 150px;
+  min-width: 160px;
+  max-height: 320px;
 }
 
 @keyframes dropdown-fade-in {
@@ -5606,6 +5621,74 @@ label:has(input[type="radio"]) {
 .pane-more-dropdown-menu .pane-more-item.is-danger:hover {
   background: rgba(220, 38, 38, 0.9) !important;
   color: #ffffff !important;
+}
+
+/* Run Agent Accordion inside Pane More Menu */
+.pane-more-accordion-group {
+  width: 100%;
+}
+
+.pane-more-accordion-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 4px 4px 8px;
+  margin: 3px 0 5px 6px;
+  border-left: 2px solid rgba(192, 132, 252, 0.35);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.pane-more-accordion-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.pane-more-accordion-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.pane-more-accordion-item {
+  width: 100% !important;
+  height: auto !important;
+  min-height: 28px !important;
+  text-align: left;
+  background: transparent !important;
+  border: none !important;
+  color: #e4e4e7 !important;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  padding: 5px 8px !important;
+  border-radius: 4px !important;
+  cursor: pointer;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+  white-space: nowrap;
+  box-shadow: none !important;
+  transition: background 0.12s ease, color 0.12s ease !important;
+  line-height: 1.25 !important;
+}
+
+.pane-more-accordion-item .agent-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #c084fc;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.pane-more-accordion-item:hover {
+  background: rgba(168, 85, 247, 0.18) !important;
+  color: #f3e8ff !important;
+}
+
+.pane-more-accordion-item:hover .agent-dot {
+  opacity: 1;
+  background: #e9d5ff;
+  box-shadow: 0 0 6px rgba(192, 132, 252, 0.6);
 }
 
 .pane-more-submenu-anchor {
