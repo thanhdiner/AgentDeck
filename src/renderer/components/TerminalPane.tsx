@@ -2230,6 +2230,7 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
       ref={paneRef}
       data-pane-id={pane.id}
       className={`terminal-pane ${active ? 'active' : ''} ${isDragOver ? 'drag-over' : ''}`}
+      style={{ backgroundColor: activeTheme.colors.background || '#141416' }}
       onMouseDown={() => selectPane(pane.id)}
       onDragOver={(e) => {
         e.preventDefault();
@@ -2373,7 +2374,8 @@ function TerminalPaneInner({ pane, active, isWorkspaceActive, isComposerVisible 
           style={{ 
             width: '100%', 
             height: '100%', 
-            paddingBottom: isComposerVisible ? '46px' : '0px' 
+            paddingBottom: isComposerVisible ? '46px' : '0px',
+            backgroundColor: activeTheme.colors.background || '#141416'
           }} 
         />
         {isRestarting ? (
